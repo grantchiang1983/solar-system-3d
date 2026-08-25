@@ -220,7 +220,7 @@ class SolarScene {
     const sunGroup = new THREE.Group();
     const texLoader = new THREE.TextureLoader();
 
-    // 1. 太陽光球主體 (NASA 2K 日冕電漿材質)
+    // 1. 太陽球體 (NASA 2K 高解析太陽日冕電漿紋理)
     const sunTexture = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.sun)
       ? texLoader.load(NASA_TEXTURES.sun)
       : TextureGenerator.createSunTexture(1024, 512);
@@ -234,29 +234,40 @@ class SolarScene {
     sunMesh.userData = { id: data.id, name: data.zhName };
     sunGroup.add(sunMesh);
 
-    // 2. 太陽色球層高溫電漿熱暈 (Chromosphere Glow)
-    const chromoGeo = new THREE.SphereGeometry(data.visualRadius * 1.06, 32, 32);
-    const chromoMat = new THREE.MeshBasicMaterial({
-      color: 0xffea55,
-      transparent: true,
-      opacity: 0.45,
-      blending: THREE.AdditiveBlending,
-      side: THREE.BackSide,
-      depthWrite: false
-    });
-    sunGroup.add(new THREE.Mesh(chromoGeo, chromoMat));
-
-    // 3. 太陽外層日冕光環 (Outer Coronal Flare)
-    const glowGeo = new THREE.SphereGeometry(data.visualRadius * 1.32, 32, 32);
+    // 2. 太陽外層日冕動態光暈 (Corona Rayleigh-Mie Glow)
+    const glowGeo = new THREE.SphereGeometry(data.visualRadius * 1.28, 32, 32);
     const glowMat = new THREE.MeshBasicMaterial({
-      color: 0xff6600,
+      color: 0xffaa00,
       transparent: true,
       opacity: 0.32,
       side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const glowMesh = new THREE.Mesh(glowGeo, glowMat);
     sunGroup.add(glowMesh);
+
+    // 3. 太陽磁場日珥耀斑環 (Solar Prominences & Magnetic Flares)
+    const flareRings = [];
+    const flareColors = [0xff4500, 0xff7700, 0xffaa00];
+    for (let f = 0; f < 3; f++) {
+      const fRadius = data.visualRadius * (1.02 + f * 0.08);
+      const fGeo = new THREE.RingGeometry(fRadius, fRadius + 1.2, 64);
+      const fMat = new THREE.MeshBasicMaterial({
+        color: flareColors[f],
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.55 - f * 0.12,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const fMesh = new THREE.Mesh(fGeo, fMat);
+      fMesh.rotation.x = (f * Math.PI) / 3;
+      fMesh.rotation.y = (f * Math.PI) / 4;
+      sunGroup.add(fMesh);
+      flareRings.push(fMesh);
+    }
+    sunGroup.userData.flareRings = flareRings;
 
     this.scene.add(sunGroup);
     this.planetMeshes.set(data.id, {
@@ -268,14 +279,17 @@ class SolarScene {
 
   createPlanet(data) {
     const planetGroup = new THREE.Group();
-
     const texLoader = new THREE.TextureLoader();
     let mat;
 
-    // 專為地球設定極致擬真材質 (NASA 2K 日照紋理 + 法線高程 + 海洋鏡面反光 + 暗面城市夜景燈光)
+    // 專為地球設定極致擬真材質 (NASA 官方 2K 晝夜切換 + 城市燈火 + 法線高程 + 海洋鏡面反光)
     if (data.id === 'earth') {
       const earthDayTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthDay)
         ? texLoader.load(NASA_TEXTURES.earthDay)
+        : TextureGenerator.createEarthTexture();
+
+      const earthNightTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthNight)
+        ? texLoader.load(NASA_TEXTURES.earthNight)
         : TextureGenerator.createEarthTexture();
 
       const earthNormalTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthNormal)
@@ -286,21 +300,72 @@ class SolarScene {
         ? texLoader.load(NASA_TEXTURES.earthSpec)
         : null;
 
-      const earthNightTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthNight)
-        ? texLoader.load(NASA_TEXTURES.earthNight)
-        : null;
+      // 使用高階自定義著色器混合 NASA 白晝地表、海洋反射、夜間城市燈火與晨昏金紅霞光
+      const customEarthMat = new THREE.ShaderMaterial({
+        uniforms: {
+          dayTexture: { value: earthDayTex },
+          nightTexture: { value: earthNightTex },
+          normalTexture: { value: earthNormalTex },
+          specularTexture: { value: earthSpecTex }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          varying vec3 vWorldPosition;
+          varying vec3 vViewPosition;
 
-      mat = new THREE.MeshStandardMaterial({
-        map: earthDayTex,
-        normalMap: earthNormalTex,
-        normalScale: new THREE.Vector2(0.75, 0.75),
-        roughnessMap: earthSpecTex,
-        roughness: 0.48,
-        metalness: 0.05,
-        emissiveMap: earthNightTex,
-        emissive: new THREE.Color(0xffde88),
-        emissiveIntensity: 0.82
+          void main() {
+            vUv = uv;
+            vNormal = normalize(normalMatrix * normal);
+            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = worldPosition.xyz;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            vViewPosition = -mvPosition.xyz;
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D dayTexture;
+          uniform sampler2D nightTexture;
+          uniform sampler2D specularTexture;
+
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          varying vec3 vWorldPosition;
+          varying vec3 vViewPosition;
+
+          void main() {
+            vec3 norm = normalize(vNormal);
+            vec3 lightDir = normalize(-vWorldPosition); // 陽光來自太陽原點 (0,0,0)
+            float sunDot = dot(norm, lightDir);
+
+            vec4 dayColor = texture2D(dayTexture, vUv);
+            vec4 nightColor = texture2D(nightTexture, vUv);
+            vec4 specColor = texture2D(specularTexture, vUv);
+
+            // 鏡面海面高光 (Ocean Glint)
+            vec3 viewDir = normalize(vViewPosition);
+            vec3 halfVector = normalize(lightDir + viewDir);
+            float specFactor = pow(max(dot(norm, halfVector), 0.0), 28.0) * specColor.r * 2.0;
+            vec3 oceanGlint = vec3(1.0, 0.96, 0.88) * specFactor * max(sunDot, 0.0);
+
+            // 晨昏線平滑混合 (Terminator blending)
+            float dayFactor = smoothstep(-0.12, 0.22, sunDot);
+            float twilight = exp(-pow((sunDot - 0.04) / 0.14, 2.0));
+            vec3 sunsetColor = vec3(1.0, 0.42, 0.08) * twilight * 0.4;
+
+            // 晝夜混合 (夜面顯示璀璨城市燈火)
+            vec3 finalColor = mix(nightColor.rgb * 1.8, dayColor.rgb, dayFactor);
+            finalColor += oceanGlint + sunsetColor;
+
+            // 深空環境底色
+            finalColor += dayColor.rgb * 0.12;
+
+            gl_FragColor = vec4(finalColor, 1.0);
+          }
+        `
       });
+      mat = customEarthMat;
     } else {
       // 載入 NASA 2K 官方最高等級材質 (含程序化引擎 Fallback)
       let pTex;
@@ -316,13 +381,13 @@ class SolarScene {
             : TextureGenerator.createMercuryTexture();
           bumpTex = pTex;
           bScale = 0.035;
-          roughnessVal = 0.94;
+          roughnessVal = 0.92;
           break;
         case 'venus':
           pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.venus)
             ? texLoader.load(NASA_TEXTURES.venus)
             : TextureGenerator.createVenusTexture();
-          roughnessVal = 0.82;
+          roughnessVal = 0.85;
           break;
         case 'mars':
           pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.mars)
@@ -336,31 +401,31 @@ class SolarScene {
           pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.jupiter)
             ? texLoader.load(NASA_TEXTURES.jupiter)
             : TextureGenerator.createJupiterTexture();
-          roughnessVal = 0.70;
+          roughnessVal = 0.72;
           break;
         case 'saturn':
           pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.saturn)
             ? texLoader.load(NASA_TEXTURES.saturn)
             : TextureGenerator.createSaturnTexture();
-          roughnessVal = 0.72;
+          roughnessVal = 0.75;
           break;
         case 'uranus':
           pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.uranus)
             ? texLoader.load(NASA_TEXTURES.uranus)
             : TextureGenerator.createUranusTexture();
-          roughnessVal = 0.62;
+          roughnessVal = 0.65;
           break;
         case 'neptune':
           pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.neptune)
             ? texLoader.load(NASA_TEXTURES.neptune)
             : TextureGenerator.createNeptuneTexture();
-          roughnessVal = 0.62;
+          roughnessVal = 0.65;
           break;
         case 'pluto':
           pTex = TextureGenerator.createPlutoTexture();
           bumpTex = pTex;
           bScale = 0.025;
-          roughnessVal = 0.92;
+          roughnessVal = 0.9;
           break;
         default:
           pTex = TextureGenerator.createMercuryTexture();
@@ -387,19 +452,56 @@ class SolarScene {
     planetMesh.rotation.z = THREE.MathUtils.degToRad(data.axialTiltDeg || 0);
     planetGroup.add(planetMesh);
 
-    // 金星特有超旋轉濃硫酸大氣外層 (Venusian Super-rotating Atmosphere)
-    if (data.id === 'venus') {
-      const venusAtmosGeo = new THREE.SphereGeometry(radius * 1.025, 48, 48);
-      const venusAtmosMat = new THREE.MeshStandardMaterial({
-        color: 0xffd97d,
+    // 各大行星專屬大氣層瑞利散射光暈 (Atmospheric Rayleigh Scattering Halos)
+    if (['venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'].includes(data.id)) {
+      let atmosColor = 0x88c4ff;
+      let atmosScale = 1.08;
+      let atmosOpacity = 0.25;
+
+      switch (data.id) {
+        case 'venus':
+          atmosColor = 0xffc862; // 金黃大氣
+          atmosScale = 1.10;
+          atmosOpacity = 0.40;
+          break;
+        case 'mars':
+          atmosColor = 0xef9a9a; // 赭紅稀薄塵埃
+          atmosScale = 1.05;
+          atmosOpacity = 0.22;
+          break;
+        case 'jupiter':
+          atmosColor = 0xe0a96d; // 氣態巨星暖光
+          atmosScale = 1.06;
+          atmosOpacity = 0.25;
+          break;
+        case 'saturn':
+          atmosColor = 0xf5d491; // 金黃大氣
+          atmosScale = 1.06;
+          atmosOpacity = 0.25;
+          break;
+        case 'uranus':
+          atmosColor = 0x7be3f6; // 甲烷青碧
+          atmosScale = 1.08;
+          atmosOpacity = 0.35;
+          break;
+        case 'neptune':
+          atmosColor = 0x4d88ff; // 湛藍深空
+          atmosScale = 1.08;
+          atmosOpacity = 0.38;
+          break;
+      }
+
+      const atmosGeo = new THREE.SphereGeometry(radius * atmosScale, 32, 32);
+      const atmosMat = new THREE.MeshBasicMaterial({
+        color: atmosColor,
+        side: THREE.BackSide,
         transparent: true,
-        opacity: 0.45,
-        roughness: 0.9,
-        blending: THREE.NormalBlending,
+        opacity: atmosOpacity,
+        blending: THREE.AdditiveBlending,
         depthWrite: false
       });
-      const venusAtmos = new THREE.Mesh(venusAtmosGeo, venusAtmosMat);
-      planetMesh.add(venusAtmos);
+      const atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
+      planetMesh.add(atmosMesh);
     }
 
     // 地球特有大氣雲層、瑞利散射光暈與月球系統
@@ -829,107 +931,124 @@ class SolarScene {
       const coords = bh.visualCoords;
       bhGroup.position.set(coords.x, coords.y, coords.z);
 
-      // 1. 黑洞事件視界 (Event Horizon - 100% 絕對純黑吸光球體 rs)
-      const horizonRadius = bh.id === 'sgr_a_star' ? 16.0 : 5.0;
+      // 1. 黑洞事件視界 (Event Horizon - 絕對純黑吸光球體，完全零反光)
+      const horizonRadius = bh.id === 'sgr_a_star' ? 15.0 : 4.8;
       const horizonGeo = new THREE.SphereGeometry(horizonRadius, 48, 48);
       const horizonMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
       const horizonMesh = new THREE.Mesh(horizonGeo, horizonMat);
       horizonMesh.userData = { id: bh.id, name: bh.zhName, isBlackHole: true };
       bhGroup.add(horizonMesh);
 
-      // 2. 超白熾光子球層 (Photon Sphere - 1.5 rs 極限光速光子軌道)
-      const photonGeo = new THREE.RingGeometry(horizonRadius * 1.02, horizonRadius * 1.18, 64);
+      // 2. 廣義相對論高解析赤道吸積盤 (Equatorial Relativistic Accretion Disk)
+      const diskTex = TextureGenerator.createAccretionDiskTexture(bh.glowColor, '#ffffff', bh.color, 1024);
+      const diskInner = horizonRadius * 1.35;
+      const diskOuter = horizonRadius * 4.6;
+      const diskGeo = new THREE.RingGeometry(diskInner, diskOuter, 96);
+      const diskMat = new THREE.MeshBasicMaterial({
+        map: diskTex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.96,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const diskMesh = new THREE.Mesh(diskGeo, diskMat);
+      diskMesh.rotation.x = Math.PI / 3;
+      bhGroup.add(diskMesh);
+
+      // 3. 愛因斯坦重力透鏡上彎曲與下彎曲光弧 (Einstein Gravitational Lensing Halo / Arch)
+      // 在星際效應 (Interstellar) 模型中，黑洞後方的吸積盤光線受強重力彎折繞過事件視界上下兩側
+      const haloGeo = new THREE.RingGeometry(diskInner * 0.98, diskOuter * 0.95, 96);
+      const haloMat = new THREE.MeshBasicMaterial({
+        map: diskTex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.88,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+      haloMesh.rotation.y = Math.PI / 6;
+      haloMesh.rotation.x = Math.PI / 2.2;
+      bhGroup.add(haloMesh);
+
+      // 4. 光子捕獲球層 (Photon Sphere, r = 1.5 rs)
+      const photonGeo = new THREE.RingGeometry(horizonRadius * 1.02, horizonRadius * 1.25, 64);
       const photonMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
+        color: new THREE.Color(bh.glowColor),
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.98,
         blending: THREE.AdditiveBlending,
         depthWrite: false
       });
-      const photonRing = new THREE.Mesh(photonGeo, photonMat);
-      photonRing.rotation.x = Math.PI / 3.2;
-      bhGroup.add(photonRing);
+      const photonMesh = new THREE.Mesh(photonGeo, photonMat);
+      photonMesh.rotation.x = Math.PI / 3;
+      bhGroup.add(photonMesh);
 
-      // 3. 水平相對論吸積盤 (Horizontal Relativistic Accretion Disk with Doppler Beaming)
-      const diskInner = horizonRadius * 1.22;
-      const diskOuter = horizonRadius * 4.4;
-      const diskGeo = new THREE.RingGeometry(diskInner, diskOuter, 96);
-      const diskMat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(bh.glowColor),
+      // 5. 相對論雙極高能電漿噴流 (Relativistic Polar Astrophysical Jets)
+      const jetTex = TextureGenerator.createRelativisticJetTexture(bh.glowColor);
+      const jetHeight = horizonRadius * 10;
+      const jetRadius = horizonRadius * 0.7;
+      const jetGeo = new THREE.CylinderGeometry(jetRadius * 2.2, jetRadius * 0.1, jetHeight, 32, 1, true);
+
+      const jetMat = new THREE.MeshBasicMaterial({
+        map: jetTex,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.92,
+        opacity: 0.82,
         blending: THREE.AdditiveBlending,
         depthWrite: false
       });
-      const diskMesh = new THREE.Mesh(diskGeo, diskMat);
-      diskMesh.rotation.x = Math.PI / 3.2;
-      bhGroup.add(diskMesh);
 
-      // 4. 垂直愛因斯坦重力透鏡光環 (Einstein Gravitational Lensing Halo - 背面光線被時空彎曲折射至上下方)
-      const lensingGeo = new THREE.RingGeometry(diskInner * 0.95, diskOuter * 0.88, 96);
-      const lensingMat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(bh.color),
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.75,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const verticalLensingRing = new THREE.Mesh(lensingGeo, lensingMat);
-      verticalLensingRing.rotation.y = Math.PI / 2;
-      verticalLensingRing.rotation.x = Math.PI / 6;
-      bhGroup.add(verticalLensingRing);
+      // 北極噴流 (+Y)
+      const northJet = new THREE.Mesh(jetGeo, jetMat);
+      northJet.position.y = jetHeight / 2 + horizonRadius;
+      bhGroup.add(northJet);
 
-      // 5. 伴星與洛希瓣引力吸積氣流 (如果是雙星黑洞系統 Gaia BH1 / Gaia BH3)
+      // 南極噴流 (-Y)
+      const southJet = new THREE.Mesh(jetGeo, jetMat);
+      southJet.position.y = -(jetHeight / 2 + horizonRadius);
+      southJet.rotation.z = Math.PI;
+      bhGroup.add(southJet);
+
+      // 6. 伴星與洛希瓣物質吸積流 (Roche-Lobe Mass Transfer Stream)
       let companionMesh = null;
-      let accretionStream = null;
+      let transferStream = null;
       if (bh.companionStar) {
-        // 伴星
-        const starGeo = new THREE.SphereGeometry(2.0, 24, 24);
-        const starMat = new THREE.MeshBasicMaterial({ color: 0xffea88 });
+        const starGeo = new THREE.SphereGeometry(1.9, 32, 32);
+        const starMat = new THREE.MeshStandardMaterial({
+          color: 0xffe88a,
+          emissive: 0xffaa22,
+          emissiveIntensity: 0.6,
+          roughness: 0.3
+        });
         companionMesh = new THREE.Mesh(starGeo, starMat);
         companionMesh.position.set(horizonRadius * 4.5, 0, 0);
         bhGroup.add(companionMesh);
 
-        // 洛希瓣氣體吸積流 (Roche Lobe Gas Stream)
-        const streamCurve = new THREE.QuadraticBezierCurve3(
-          new THREE.Vector3(horizonRadius * 4.5, 0, 0),
-          new THREE.Vector3(horizonRadius * 2.5, 2.5, 0),
-          new THREE.Vector3(diskInner * 1.1, 0, 0)
-        );
-        const streamGeo = new THREE.TubeGeometry(streamCurve, 32, 0.25, 8, false);
-        const streamMat = new THREE.MeshBasicMaterial({
+        // 物質吸積流曲線
+        const streamPoints = [];
+        const numStreamPts = 40;
+        for (let s = 0; s <= numStreamPts; s++) {
+          const t = s / numStreamPts;
+          const strR = horizonRadius * 4.5 * (1 - t) + diskInner * t;
+          const strAngle = t * Math.PI * 1.5;
+          streamPoints.push(new THREE.Vector3(
+            strR * Math.cos(strAngle),
+            Math.sin(t * Math.PI) * 0.8,
+            strR * Math.sin(strAngle)
+          ));
+        }
+        const streamGeo = new THREE.BufferGeometry().setFromPoints(streamPoints);
+        const streamMat = new THREE.LineBasicMaterial({
           color: new THREE.Color(bh.glowColor),
           transparent: true,
-          opacity: 0.8,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
+          opacity: 0.85,
+          linewidth: 2
         });
-        accretionStream = new THREE.Mesh(streamGeo, streamMat);
-        bhGroup.add(accretionStream);
-      }
-
-      // 6. 銀心超大質量黑洞 Sgr A* 專屬雙極相對論電漿噴流 (Relativistic Polar Jets)
-      if (bh.id === 'sgr_a_star') {
-        const jetGeo = new THREE.CylinderGeometry(0.8, 12, 180, 32, 1, true);
-        const jetMat = new THREE.MeshBasicMaterial({
-          color: 0x38bdf8,
-          transparent: true,
-          opacity: 0.45,
-          side: THREE.DoubleSide,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
-        });
-        const northJet = new THREE.Mesh(jetGeo, jetMat);
-        northJet.position.y = 90;
-        bhGroup.add(northJet);
-
-        const southJet = new THREE.Mesh(jetGeo, jetMat);
-        southJet.position.y = -90;
-        southJet.rotation.x = Math.PI;
-        bhGroup.add(southJet);
+        transferStream = new THREE.Line(streamGeo, streamMat);
+        bhGroup.add(transferStream);
       }
 
       // 7. 太陽系到黑洞的星際距離雷射指引光束 (Interstellar Distance Beam)
@@ -937,10 +1056,10 @@ class SolarScene {
       const beamGeo = new THREE.BufferGeometry().setFromPoints(points);
       const beamMat = new THREE.LineDashedMaterial({
         color: new THREE.Color(bh.glowColor),
-        dashSize: 10,
+        dashSize: 12,
         gapSize: 6,
         transparent: true,
-        opacity: bh.isClosest ? 0.95 : 0.5
+        opacity: bh.isClosest ? 0.95 : 0.55
       });
       const beamLine = new THREE.Line(beamGeo, beamMat);
       beamLine.computeLineDistances();
@@ -965,7 +1084,7 @@ class SolarScene {
       const labelMat = new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false });
       const sprite = new THREE.Sprite(labelMat);
       sprite.scale.set(38, 8.5, 1);
-      sprite.position.set(0, horizonRadius + 14, 0);
+      sprite.position.set(0, horizonRadius + 15, 0);
       bhGroup.add(sprite);
 
       this.scene.add(bhGroup);
@@ -973,10 +1092,11 @@ class SolarScene {
         group: bhGroup,
         mesh: horizonMesh,
         diskMesh: diskMesh,
-        photonRing: photonRing,
-        verticalLensingRing: verticalLensingRing,
+        haloMesh: haloMesh,
+        northJet: northJet,
+        southJet: southJet,
         companionMesh: companionMesh,
-        accretionStream: accretionStream,
+        transferStream: transferStream,
         beamLine: beamLine,
         label: sprite,
         data: bh
@@ -990,11 +1110,16 @@ class SolarScene {
   updateSceneObjects() {
     const states = this.simulation.planetStates;
 
-    // 1. 更新太陽
+    // 1. 更新太陽與日珥耀斑動畫
     const sunState = states.get('sun');
     const sunObj = this.planetMeshes.get('sun');
     if (sunObj && sunState) {
       sunObj.mesh.rotation.y = sunState.rotationAngle;
+      if (sunObj.group.userData.flareRings) {
+        sunObj.group.userData.flareRings.forEach((flare, idx) => {
+          flare.rotation.z += 0.003 * (idx + 1);
+        });
+      }
     }
 
     // 2. 更新各大行星
@@ -1061,26 +1186,27 @@ class SolarScene {
       this.kuiperBelt.rotation.y += 0.0001;
     }
 
-    // 4. 銀河系緩慢旋轉與黑洞吸積盤動畫
+    // 4. 銀河系緩慢旋轉與黑洞廣義相對論吸積盤、光弧與噴流動畫
     if (this.milkyWayGroup) {
       this.milkyWayGroup.rotation.y += 0.00008;
     }
     this.blackHoleObjects.forEach(bhObj => {
       if (bhObj.diskMesh) {
-        bhObj.diskMesh.rotation.z += 0.025; // 吸積盤高速旋轉
+        bhObj.diskMesh.rotation.z += 0.025; // 吸積盤高速相對論差動旋轉
       }
-      if (bhObj.photonRing) {
-        bhObj.photonRing.rotation.z += 0.035; // 光子球高速旋轉
+      if (bhObj.haloMesh) {
+        bhObj.haloMesh.rotation.z += 0.018; // 重力透鏡光弧
       }
-      if (bhObj.verticalLensingRing) {
-        bhObj.verticalLensingRing.rotation.z += 0.015; // 重力透鏡流光旋轉
+      if (bhObj.northJet && bhObj.southJet) {
+        bhObj.northJet.rotation.y += 0.04;  // 噴流螺旋磁場旋轉
+        bhObj.southJet.rotation.y += 0.04;
       }
       if (bhObj.companionMesh) {
         const time = performance.now() * 0.001;
-        const orbitR = bhObj.data.id === 'sgr_a_star' ? 45 : 18;
+        const orbitR = bhObj.data.id === 'sgr_a_star' ? 45 : 20;
         bhObj.companionMesh.position.set(
           orbitR * Math.cos(time * 0.6),
-          2 * Math.sin(time * 0.6),
+          1.5 * Math.sin(time * 0.6),
           orbitR * Math.sin(time * 0.6)
         );
       }

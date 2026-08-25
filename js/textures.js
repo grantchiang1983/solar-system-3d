@@ -751,4 +751,103 @@ class TextureGenerator {
     const texture = new THREE.CanvasTexture(canvas);
     return texture;
   }
+
+  /**
+   * 建立廣義相對論黑洞吸積盤極致材質 (Relativistic Accretion Disk Map)
+   * 包含都卜勒增亮 (Doppler Beaming)、內緣高溫白熾區 (ISCO) 與多重紊流螺旋波
+   */
+  static createAccretionDiskTexture(glowHex = '#ec4899', coreHex = '#ffffff', outerHex = '#7928ca', size = 1024) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const cx = size / 2;
+    const cy = size / 2;
+
+    ctx.clearRect(0, 0, size, size);
+
+    // 1. 同心高能等離子體密度波 (Concentric Density Waves)
+    const maxR = size * 0.48;
+    const minR = size * 0.16;
+
+    for (let r = minR; r < maxR; r += 1.5) {
+      const norm = (r - minR) / (maxR - minR);
+      const alpha = Math.sin(norm * Math.PI) * 0.75 * (1.0 - norm * 0.4);
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.15})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // 2. 雙臂相對論對數螺旋衝擊波 (Spiral Shock Waves)
+    const arms = 2;
+    for (let arm = 0; arm < arms; arm++) {
+      const baseTheta = (arm * Math.PI * 2) / arms;
+      for (let step = 0; step < 400; step++) {
+        const t = step / 400;
+        const r = minR + t * (maxR - minR);
+        const theta = baseTheta + t * Math.PI * 4.5;
+        const x = cx + r * Math.cos(theta);
+        const y = cy + r * Math.sin(theta);
+
+        const radGrad = ctx.createRadialGradient(x, y, 0, x, y, 18);
+        radGrad.addColorStop(0, glowHex);
+        radGrad.addColorStop(0.4, 'rgba(255, 255, 255, 0.4)');
+        radGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+        ctx.fillStyle = radGrad;
+        ctx.beginPath();
+        ctx.arc(x, y, 18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 3. 都卜勒不對稱增亮 (Doppler Beaming Asymmetry)
+    // 左側 (朝向觀察者運行面) 能量增益
+    const dopplerGrad = ctx.createRadialGradient(cx * 0.65, cy, minR, cx, cy, maxR);
+    dopplerGrad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+    dopplerGrad.addColorStop(0.3, glowHex);
+    dopplerGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = dopplerGrad;
+    ctx.fillRect(0, 0, size, size);
+
+    // 4. 最內側穩定軌道 (ISCO) 高溫白熾光圈
+    const iscoGrad = ctx.createRadialGradient(cx, cy, minR * 0.9, cx, cy, minR * 1.35);
+    iscoGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    iscoGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+    iscoGrad.addColorStop(0.8, glowHex);
+    iscoGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = iscoGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, minR * 1.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    return tex;
+  }
+
+  /**
+   * 相對論極向噴流高能電漿光束材質 (Relativistic Polar Jet Texture)
+   */
+  static createRelativisticJetTexture(colorHex = '#a855f7') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.15, colorHex);
+    grad.addColorStop(0.6, 'rgba(168, 85, 247, 0.4)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 512);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
 }

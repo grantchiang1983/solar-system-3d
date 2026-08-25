@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D 太陽系全景互動模擬系統 - Solar System 3D Telemetry</title>
+  
+  <!-- Google Fonts: Inter, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Three.js & OrbitControls (Local offline libraries with CDN fallback) -->
+  <script src="js/libs/three.min.js"></script>
+  <script src="js/libs/OrbitControls.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');
+    }
+  </script>
+</head>
+<body>
+
+  <!-- 3D 渲染畫布容器 -->
+  <div id="canvas-container"></div>
+
+  <!-- 頂部資訊與遙測列 -->
+  <header class="top-header">
+    <div class="brand-section">
+      <span class="brand-icon">🪐</span>
+      <div>
+        <div class="brand-title">3D 太陽系全景天文觀測系統</div>
+        <div class="brand-subtitle">HELIOCENTRIC ORBITAL TELEMETRY & AZIMUTH MATRIX</div>
+      </div>
+    </div>
+
+    <div class="time-telemetry-badge">
+      <div class="time-item">
+        <span class="time-label">模擬日期 (SIM DATE)</span>
+        <span class="time-val" id="current-date-display">2026-08-25</span>
+      </div>
+      <div class="time-item">
+        <span class="time-label">累積天數 (DAYS)</span>
+        <span class="time-val" id="sim-days-display">+0 天</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 行星快速切換標籤列 -->
+  <div class="planet-chips-bar" id="planet-chips-container">
+    <!-- 由 JS 自動產生行星選取 Chips -->
+  </div>
+
+  <!-- 左側即時日心遙測矩陣 (Heliocentric Telemetry Matrix) -->
+  <aside class="panel-left-telemetry" id="panel-matrix">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="live-indicator"></span>
+        <span>即時日心遙測矩陣</span>
+      </div>
+      <span style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">KEPLER V1.0</span>
+    </div>
+
+    <div class="table-scroll-container">
+      <table class="telemetry-table">
+        <thead>
+          <tr>
+            <th>天體</th>
+            <th>日心方位角</th>
+            <th>公轉速度</th>
+            <th>相對日距</th>
+          </tr>
+        </thead>
+        <tbody id="telemetry-tbody">
+          <!-- 由 JS 自動填入動態數據 -->
+        </tbody>
+      </table>
+    </div>
+  </aside>
+
+  <!-- 右側天體全息詳細檔案 (Planet Inspector) -->
+  <aside class="panel-right-inspector">
+    <div id="planet-detail-card">
+      <!-- 由 JS 動態注入選定行星卡片內容 -->
+    </div>
+  </aside>
+
+  <!-- 底部懸浮控制中心 (Floating Control Dock) -->
+  <nav class="bottom-dock">
+    <!-- 時間控制器 -->
+    <div class="dock-group">
+      <button class="dock-btn active" id="btn-play-pause">
+        <span class="icon">⏸</span> 暫停時間
+      </button>
+      <div class="speed-btn-group">
+        <button class="speed-btn" data-speed="0.2">0.2x</button>
+        <button class="speed-btn" data-speed="1">1x</button>
+        <button class="speed-btn active" data-speed="5">5x</button>
+        <button class="speed-btn" data-speed="30">30x</button>
+        <button class="speed-btn" data-speed="365">1年/s</button>
+      </div>
+      <button class="dock-btn" id="btn-reset-time" title="重設時間至今日">
+        ↺ 重設
+      </button>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <!-- 視角切換 -->
+    <div class="dock-group">
+      <button class="dock-btn" id="btn-view-overview">🌐 太陽系全景</button>
+      <button class="dock-btn" id="btn-view-milkyway">🌌 銀河系全景</button>
+      <button class="dock-btn highlight-bh" id="btn-view-bh1">🕳️ 最近黑洞 (Gaia BH1)</button>
+      <button class="dock-btn" id="btn-view-earth">🌍 地球主體視角</button>
+      <button class="dock-btn" id="btn-view-topdown">📐 俯瞰黃道面</button>
+      <button class="dock-btn active" id="btn-view-focus">🎯 鎖定追蹤</button>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <!-- 顯示圖層開關 -->
+    <div class="dock-group layers-group">
+      <label class="layer-label">
+        <input type="checkbox" class="layer-toggle" data-layer="orbits" checked> 軌道線
+      </label>
+      <label class="layer-label">
+        <input type="checkbox" class="layer-toggle" data-layer="moonOrbit" checked> 月球軌跡
+      </label>
+      <label class="layer-label">
+        <input type="checkbox" class="layer-toggle" data-layer="milkyWay" checked> 銀河星盤
+      </label>
+      <label class="layer-label">
+        <input type="checkbox" class="layer-toggle" data-layer="blackHoles" checked> 已知黑洞
+      </label>
+      <label class="layer-label">
+        <input type="checkbox" class="layer-toggle" data-layer="azimuthRays" checked> 方位射線
+      </label>
+      <label class="layer-label">
+        <input type="checkbox" class="layer-toggle" data-layer="labels" checked> 名稱標籤
+      </label>
+      <label class="layer-label">
+        <input type="checkbox" class="layer-toggle" data-layer="eclipticGrid" checked> 黃道網格
+      </label>
+      <label class="layer-label">
+        <input type="checkbox" class="layer-toggle" data-layer="asteroidBelt" checked> 小行星帶
+      </label>
+    </div>
+  </nav>
+
+  <!-- 應用腳本鏈結 -->
+  <script src="js/data.js"></script>
+  <script src="js/nasa-textures-data.js"></script>
+  <script src="js/textures.js"></script>
+  <script src="js/simulation.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

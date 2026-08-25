@@ -1,0 +1,1202 @@
+/**
+ * Three.js 3D 視覺渲染與互動場景 (Solar System 3D Scene)
+ * 負責天體網格、動態光影、軌道線、日心方位射線、小行星帶及相機跟隨系統
+ */
+
+class SolarScene {
+  constructor(containerElement, simulation) {
+    this.container = containerElement;
+    this.simulation = simulation;
+
+    // Three.js 核心組件
+    this.scene = null;
+    this.camera = null;
+    this.renderer = null;
+    this.controls = null;
+
+    // 物件字典
+    this.planetMeshes = new Map();
+    this.orbitLines = new Map();
+    this.azimuthLines = new Map();
+    this.planetLabels = new Map();
+    this.earthClouds = null;
+    this.moonMesh = null;
+    this.moonOrbitLine = null;
+    this.moonLabel = null;
+    this.asteroidBelt = null;
+    this.kuiperBelt = null;
+    this.compassRing = null;
+    this.eclipticGrid = null;
+    this.milkyWayGroup = null;
+    this.blackHoleObjects = new Map();
+
+    // 視圖與相機控制
+    this.focusedPlanetId = null;       // 當前鎖定跟隨的星球 ID ('sun', 'earth', etc.)
+    this.focusedBlackHoleId = null;
+    this.isTopDownView = false;
+    this.cameraLerpTarget = null;
+    this.controlsTargetLerp = null;
+
+    // 顯示設定開關
+    this.layers = {
+      orbits: true,
+      azimuthRays: true,
+      labels: true,
+      eclipticGrid: true,
+      asteroidBelt: true,
+      atmosphereGlow: true,
+      moonOrbit: true,
+      milkyWay: true,
+      blackHoles: true
+    };
+
+    // 射線檢測
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+
+    this.init();
+  }
+
+  init() {
+    // 1. 初始化場景
+    this.scene = new THREE.Scene();
+
+    // 2. 初始化相機 (支援銀河系宏觀視界 40,000 單位)
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 40000);
+    this.camera.position.set(0, 140, 260);
+
+    // 3. 初始化渲染器 (啟用高精度軟陰影與色調映射)
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance',
+      alpha: false
+    });
+    this.renderer.setSize(width, height);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.container.appendChild(this.renderer.domElement);
+
+    // 4. 初始化軌道控制器 (支援銀河系大尺度縮放)
+    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.minDistance = 4;
+    this.controls.maxDistance = 8000;
+    this.controls.maxPolarAngle = Math.PI - 0.05;
+
+    // 5. 建立深空星空背景
+    this.createSkybox();
+
+    // 6. 建立燈光系統 (點光源 + 地月高精度動態陰影陽光)
+    this.setupLighting();
+
+    // 7. 建立黃道座標網格與日心方位羅盤
+    this.createEclipticCoordinateGrid();
+
+    // 8. 建立太陽系所有天體與光環
+    this.createCelestialBodies();
+
+    // 9. 建立小行星帶與柯伊伯帶
+    this.createAsteroidBelts();
+
+    // 10. 建立銀河系 3D 旋臂粒子星盤與核心光核
+    this.createMilkyWayGalaxy();
+
+    // 11. 建立已知黑洞 (重點標註最近黑洞 Gaia BH1 與銀心人馬座 A*)
+    this.createBlackHoles();
+
+    // 12. 事件監聽
+    window.addEventListener('resize', () => this.onWindowResize());
+    this.renderer.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+  }
+
+  createSkybox() {
+    const starTexture = TextureGenerator.createStarfieldTexture(2048);
+    const starGeo = new THREE.SphereGeometry(2500, 32, 32);
+    const starMat = new THREE.MeshBasicMaterial({
+      map: starTexture,
+      side: THREE.BackSide
+    });
+    const starfield = new THREE.Mesh(starGeo, starMat);
+    this.scene.add(starfield);
+  }
+
+  setupLighting() {
+    // 1. 太陽全向核心光源
+    const sunLight = new THREE.PointLight(0xfffaed, 3.8, 4000, 0.3);
+    sunLight.position.set(0, 0, 0);
+    this.scene.add(sunLight);
+
+    // 2. 地月系統專屬高精度陽光 (負責日食/月食/晨昏線陰影投射)
+    this.earthSunLight = new THREE.DirectionalLight(0xfffdf5, 2.5);
+    this.earthSunLight.castShadow = true;
+    this.earthSunLight.shadow.mapSize.width = 2048;
+    this.earthSunLight.shadow.mapSize.height = 2048;
+    this.earthSunLight.shadow.camera.near = 0.5;
+    this.earthSunLight.shadow.camera.far = 150;
+    this.earthSunLight.shadow.camera.left = -12;
+    this.earthSunLight.shadow.camera.right = 12;
+    this.earthSunLight.shadow.camera.top = 12;
+    this.earthSunLight.shadow.camera.bottom = -12;
+    this.earthSunLight.shadow.bias = -0.0002;
+    this.earthSunLight.shadow.radius = 1.5;
+    this.scene.add(this.earthSunLight);
+    this.scene.add(this.earthSunLight.target);
+
+    // 3. 柔和深空環境光 (確保背光面地表清晰可辨)
+    const ambientLight = new THREE.AmbientLight(0x323f54, 0.75);
+    this.scene.add(ambientLight);
+  }
+
+  createEclipticCoordinateGrid() {
+    this.eclipticGrid = new THREE.Group();
+
+    // 1. 同心距離圓環 (0.5 AU, 1.0 AU, 1.5 AU, 5.2 AU, 9.5 AU 等)
+    const ringDistances = [28, 42, 58, 76, 105, 140, 178, 215, 255];
+    ringDistances.forEach((r, idx) => {
+      const ringGeo = new THREE.RingGeometry(r - 0.08, r + 0.08, 128);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x1f3b58,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.25
+      });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.rotation.x = Math.PI / 2;
+      this.eclipticGrid.add(ringMesh);
+    });
+
+    // 2. 日心方位角刻度射線 (每 30° 一條輔助基準線)
+    for (let deg = 0; deg < 360; deg += 30) {
+      const rad = (deg * Math.PI) / 180;
+      const length = 270;
+      const points = [
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(length * Math.cos(rad), 0, length * Math.sin(rad))
+      ];
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: deg === 0 ? 0x00ffcc : 0x1b354d,
+        transparent: true,
+        opacity: deg === 0 ? 0.6 : 0.2
+      });
+      const line = new THREE.Line(lineGeo, lineMat);
+      this.eclipticGrid.add(line);
+    }
+
+    // 3. 基準 0° (春分點 Vernal Equinox) 標記線
+    const vernalArrow = new THREE.ArrowHelper(
+      new THREE.Vector3(1, 0, 0),
+      new THREE.Vector3(0, 0, 0),
+      280,
+      0x00ffcc,
+      8,
+      4
+    );
+    vernalArrow.line.material.transparent = true;
+    vernalArrow.line.material.opacity = 0.7;
+    this.eclipticGrid.add(vernalArrow);
+
+    this.scene.add(this.eclipticGrid);
+  }
+
+  createCelestialBodies() {
+    PLANETS_DATA.forEach(planet => {
+      if (planet.id === 'sun') {
+        this.createSun(planet);
+      } else {
+        this.createPlanet(planet);
+      }
+    });
+  }
+
+  createSun(data) {
+    const sunGroup = new THREE.Group();
+    const texLoader = new THREE.TextureLoader();
+
+    // 1. 太陽球體 (NASA 2K 高解析太陽日冕電漿紋理)
+    const sunTexture = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.sun)
+      ? texLoader.load(NASA_TEXTURES.sun)
+      : TextureGenerator.createSunTexture(1024, 512);
+
+    const sunGeo = new THREE.SphereGeometry(data.visualRadius, 64, 64);
+    const sunMat = new THREE.MeshBasicMaterial({
+      map: sunTexture,
+      color: 0xffffff
+    });
+    const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+    sunMesh.userData = { id: data.id, name: data.zhName };
+    sunGroup.add(sunMesh);
+
+    // 2. 太陽外層光暈 (Corona Glow)
+    const glowGeo = new THREE.SphereGeometry(data.visualRadius * 1.25, 32, 32);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0xffaa00,
+      transparent: true,
+      opacity: 0.28,
+      side: THREE.BackSide,
+      depthWrite: false
+    });
+    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+    sunGroup.add(glowMesh);
+
+    this.scene.add(sunGroup);
+    this.planetMeshes.set(data.id, {
+      group: sunGroup,
+      mesh: sunMesh,
+      data: data
+    });
+  }
+
+  createPlanet(data) {
+    const planetGroup = new THREE.Group();
+
+    const texLoader = new THREE.TextureLoader();
+    let mat;
+
+    // 專為地球設定極致擬真材質 (NASA 官方 2K 紋理 + 法線高程 + 海洋鏡面反光，支援 Base64 與程序化 Fallback)
+    if (data.id === 'earth') {
+      const earthDayTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthDay)
+        ? texLoader.load(NASA_TEXTURES.earthDay)
+        : TextureGenerator.createEarthTexture();
+
+      const earthNormalTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthNormal)
+        ? texLoader.load(NASA_TEXTURES.earthNormal)
+        : null;
+
+      const earthSpecTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthSpec)
+        ? texLoader.load(NASA_TEXTURES.earthSpec)
+        : null;
+
+      mat = new THREE.MeshStandardMaterial({
+        map: earthDayTex,
+        normalMap: earthNormalTex,
+        normalScale: new THREE.Vector2(0.65, 0.65),
+        roughnessMap: earthSpecTex,
+        roughness: 0.5,
+        metalness: 0.05
+      });
+    } else {
+      // 載入 NASA 2K 官方最高等級材質 (含程序化引擎 Fallback)
+      let pTex;
+      let bumpTex = null;
+      let bScale = 0.0;
+      let roughnessVal = 0.8;
+      let metalnessVal = 0.05;
+
+      switch (data.id) {
+        case 'mercury':
+          pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.mercury)
+            ? texLoader.load(NASA_TEXTURES.mercury)
+            : TextureGenerator.createMercuryTexture();
+          bumpTex = pTex;
+          bScale = 0.025;
+          roughnessVal = 0.92;
+          break;
+        case 'venus':
+          pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.venus)
+            ? texLoader.load(NASA_TEXTURES.venus)
+            : TextureGenerator.createVenusTexture();
+          roughnessVal = 0.85;
+          break;
+        case 'mars':
+          pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.mars)
+            ? texLoader.load(NASA_TEXTURES.mars)
+            : TextureGenerator.createMarsTexture();
+          bumpTex = pTex;
+          bScale = 0.03;
+          roughnessVal = 0.88;
+          break;
+        case 'jupiter':
+          pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.jupiter)
+            ? texLoader.load(NASA_TEXTURES.jupiter)
+            : TextureGenerator.createJupiterTexture();
+          roughnessVal = 0.72;
+          break;
+        case 'saturn':
+          pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.saturn)
+            ? texLoader.load(NASA_TEXTURES.saturn)
+            : TextureGenerator.createSaturnTexture();
+          roughnessVal = 0.75;
+          break;
+        case 'uranus':
+          pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.uranus)
+            ? texLoader.load(NASA_TEXTURES.uranus)
+            : TextureGenerator.createUranusTexture();
+          roughnessVal = 0.65;
+          break;
+        case 'neptune':
+          pTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.neptune)
+            ? texLoader.load(NASA_TEXTURES.neptune)
+            : TextureGenerator.createNeptuneTexture();
+          roughnessVal = 0.65;
+          break;
+        case 'pluto':
+          pTex = TextureGenerator.createPlutoTexture();
+          bumpTex = pTex;
+          bScale = 0.02;
+          roughnessVal = 0.9;
+          break;
+        default:
+          pTex = TextureGenerator.createMercuryTexture();
+      }
+
+      mat = new THREE.MeshStandardMaterial({
+        map: pTex,
+        bumpMap: bumpTex,
+        bumpScale: bScale,
+        roughness: roughnessVal,
+        metalness: metalnessVal
+      });
+    }
+
+    // 行星主體網格 (使用 64x64 高多邊形球體)
+    const radius = data.visualRadius;
+    const geo = new THREE.SphereGeometry(radius, 64, 64);
+    const planetMesh = new THREE.Mesh(geo, mat);
+    planetMesh.castShadow = true;
+    planetMesh.receiveShadow = true;
+    planetMesh.userData = { id: data.id, name: data.zhName };
+
+    // 設定自轉軸傾角 (Axial Tilt)
+    planetMesh.rotation.z = THREE.MathUtils.degToRad(data.axialTiltDeg || 0);
+    planetGroup.add(planetMesh);
+
+    // 地球特有大氣雲層、瑞利散射光暈與月球系統
+    if (data.id === 'earth') {
+      // 1. 地球大氣雲層 (真實 NASA 雲圖 + 投影陰影，depthWrite: false 杜絕黑斑遮蔽)
+      const cloudTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthClouds)
+        ? texLoader.load(NASA_TEXTURES.earthClouds)
+        : TextureGenerator.createEarthCloudsTexture();
+
+      const cloudGeo = new THREE.SphereGeometry(radius * 1.018, 64, 64);
+      const cloudMat = new THREE.MeshStandardMaterial({
+        map: cloudTex,
+        transparent: true,
+        opacity: 0.88,
+        depthWrite: false, // 防止遮蔽內部地表
+        blending: THREE.NormalBlending,
+        roughness: 0.95
+      });
+      this.earthClouds = new THREE.Mesh(cloudGeo, cloudMat);
+      this.earthClouds.castShadow = true;
+      this.earthClouds.receiveShadow = false;
+      planetMesh.add(this.earthClouds);
+
+      // 2. 瑞利散射大氣發光層 (Atmospheric Rayleigh Scattering Glow)
+      const atmosVertexShader = `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `;
+      const atmosFragmentShader = `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        void main() {
+          vec3 viewDir = normalize(-vPosition);
+          float intensity = pow(0.65 - dot(vNormal, viewDir), 2.2);
+          vec3 glowColor = vec3(0.28, 0.65, 1.0);
+          gl_FragColor = vec4(glowColor, clamp(intensity * 0.9, 0.0, 1.0));
+        }
+      `;
+      const atmosGeo = new THREE.SphereGeometry(radius * 1.12, 48, 48);
+      const atmosMat = new THREE.ShaderMaterial({
+        vertexShader: atmosVertexShader,
+        fragmentShader: atmosFragmentShader,
+        blending: THREE.AdditiveBlending,
+        side: THREE.BackSide,
+        transparent: true,
+        depthWrite: false // 防止遮蔽
+      });
+      this.earthAtmosphere = new THREE.Mesh(atmosGeo, atmosMat);
+      planetMesh.add(this.earthAtmosphere);
+
+      // 3. 月球本體 (真實 NASA 紋理 + 高精度凹凸陰影 + 接收與投射月食/日食陰影)
+      const moonData = data.moon;
+      const moonTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.moonDay)
+        ? texLoader.load(NASA_TEXTURES.moonDay)
+        : TextureGenerator.createMoonTexture();
+
+      const moonGeo = new THREE.SphereGeometry(moonData.visualRadius, 48, 48);
+      const moonMat = new THREE.MeshStandardMaterial({
+        map: moonTex,
+        bumpMap: moonTex,
+        bumpScale: 0.035,
+        roughness: 0.92,
+        metalness: 0.0
+      });
+      this.moonMesh = new THREE.Mesh(moonGeo, moonMat);
+      this.moonMesh.castShadow = true;
+      this.moonMesh.receiveShadow = true;
+      this.moonMesh.userData = { id: 'moon', name: moonData.zhName };
+      planetGroup.add(this.moonMesh);
+
+      // 月球公轉軌道曲線 (Moon Orbit Trail Line)
+      const moonSegs = 96;
+      const moonPoints = [];
+      const mDist = moonData.orbitDistance;
+      const moonIncRad = THREE.MathUtils.degToRad(5.14); // 5.14° 白道傾角
+      for (let i = 0; i <= moonSegs; i++) {
+        const theta = (i / moonSegs) * Math.PI * 2;
+        moonPoints.push(new THREE.Vector3(
+          mDist * Math.cos(theta),
+          mDist * Math.sin(theta) * Math.sin(moonIncRad),
+          mDist * Math.sin(theta) * Math.cos(moonIncRad)
+        ));
+      }
+      const moonOrbitGeo = new THREE.BufferGeometry().setFromPoints(moonPoints);
+      const moonOrbitMat = new THREE.LineBasicMaterial({
+        color: 0x88c4ff,
+        transparent: true,
+        opacity: 0.65,
+        linewidth: 1
+      });
+      this.moonOrbitLine = new THREE.Line(moonOrbitGeo, moonOrbitMat);
+      planetGroup.add(this.moonOrbitLine);
+
+      // 月球浮動標籤
+      const moonCanvas = document.createElement('canvas');
+      moonCanvas.width = 192;
+      moonCanvas.height = 48;
+      const mCtx = moonCanvas.getContext('2d');
+      mCtx.font = 'bold 20px "Inter", "Segoe UI", sans-serif';
+      mCtx.fillStyle = '#b0d4ff';
+      mCtx.textAlign = 'center';
+      mCtx.shadowColor = 'rgba(0,0,0,0.8)';
+      mCtx.shadowBlur = 4;
+      mCtx.fillText('月球 (Moon)', 96, 32);
+
+      const mTex = new THREE.CanvasTexture(moonCanvas);
+      const mSpriteMat = new THREE.SpriteMaterial({ map: mTex, transparent: true, depthTest: false });
+      this.moonLabel = new THREE.Sprite(mSpriteMat);
+      this.moonLabel.scale.set(6, 1.5, 1);
+      this.moonLabel.position.set(0, moonData.visualRadius + 0.8, 0);
+      this.moonMesh.add(this.moonLabel);
+    }
+
+    // 土星光環 (NASA 2K 高解析度環帶)
+    if (data.hasRings && data.id === 'saturn') {
+      const ringTexture = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.saturnRing)
+        ? texLoader.load(NASA_TEXTURES.saturnRing)
+        : TextureGenerator.createSaturnRingTexture(512);
+
+      const ringGeo = new THREE.RingGeometry(data.ringInnerRadius, data.ringOuterRadius, 128);
+
+      // UV 映射修正，使 1D 漸層貼圖沿半徑展開
+      const pos = ringGeo.attributes.position;
+      const uvs = ringGeo.attributes.uv;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const dist = Math.sqrt(x * x + y * y);
+        const u = (dist - data.ringInnerRadius) / (data.ringOuterRadius - data.ringInnerRadius);
+        uvs.setXY(i, u, 0.5);
+      }
+      uvs.needsUpdate = true;
+
+      const ringMat = new THREE.MeshStandardMaterial({
+        map: ringTexture,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.96,
+        roughness: 0.65,
+        depthWrite: false
+      });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.rotation.x = Math.PI / 2;
+      planetMesh.add(ringMesh);
+    }
+
+    // 天王星暗淡光環
+    if (data.hasRings && data.id === 'uranus') {
+      const ringGeo = new THREE.RingGeometry(data.ringInnerRadius, data.ringOuterRadius, 64);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x9be8f5,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.35
+      });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.rotation.x = Math.PI / 2;
+      planetMesh.add(ringMesh);
+    }
+
+    // 建立 3D 軌道曲線
+    this.createOrbitPath(data);
+
+    // 建立日心方位角動態指示線 (Sun-to-Planet Ray)
+    this.createAzimuthRay(data);
+
+    // 建立 3D 浮動標籤
+    this.createPlanetLabel(data, planetGroup);
+
+    this.scene.add(planetGroup);
+    this.planetMeshes.set(data.id, {
+      group: planetGroup,
+      mesh: planetMesh,
+      data: data
+    });
+  }
+
+  createOrbitPath(data) {
+    const segments = 256;
+    const points = [];
+    const a = data.visualOrbitRadius;
+    const e = data.eccentricity;
+    const incRad = THREE.MathUtils.degToRad(data.inclinationDeg || 0);
+
+    for (let i = 0; i <= segments; i++) {
+      const theta = (i / segments) * Math.PI * 2;
+      const r = (a * (1 - e * e)) / (1 + e * Math.cos(theta));
+      const x = r * Math.cos(theta);
+      const z = r * Math.sin(theta);
+      const y = r * Math.sin(theta) * Math.sin(incRad);
+      points.push(new THREE.Vector3(x, y, z));
+    }
+
+    const orbitGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const orbitMat = new THREE.LineBasicMaterial({
+      color: new THREE.Color(data.color),
+      transparent: true,
+      opacity: 0.45,
+      linewidth: 1
+    });
+    const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+    this.scene.add(orbitLine);
+    this.orbitLines.set(data.id, orbitLine);
+  }
+
+  createAzimuthRay(data) {
+    // 日心到行星的方位角射線
+    const points = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)];
+    const rayGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const rayMat = new THREE.LineDashedMaterial({
+      color: new THREE.Color(data.color),
+      dashSize: 2,
+      gapSize: 1.5,
+      transparent: true,
+      opacity: 0.75
+    });
+    const rayLine = new THREE.Line(rayGeo, rayMat);
+    rayLine.computeLineDistances();
+    this.scene.add(rayLine);
+    this.azimuthLines.set(data.id, rayLine);
+  }
+
+  createPlanetLabel(data, parentGroup) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+
+    ctx.font = 'bold 24px "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 6;
+    ctx.fillText(`${data.zhName}`, 128, 40);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMat = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false
+    });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.scale.set(12, 3, 1);
+    sprite.position.set(0, data.visualRadius + 3.0, 0);
+    parentGroup.add(sprite);
+
+    this.planetLabels.set(data.id, sprite);
+  }
+
+  createAsteroidBelts() {
+    // 1. 主要小行星帶 (Main Asteroid Belt)
+    const beltCfg = ASTEROID_BELT_CONFIG;
+    const beltGeo = new THREE.DodecahedronGeometry(0.2, 0);
+    const beltMat = new THREE.MeshStandardMaterial({
+      color: 0x8a847e,
+      roughness: 0.9
+    });
+    this.asteroidBelt = new THREE.InstancedMesh(beltGeo, beltMat, beltCfg.count);
+
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < beltCfg.count; i++) {
+      const radius = beltCfg.innerRadius + Math.random() * (beltCfg.outerRadius - beltCfg.innerRadius);
+      const angle = Math.random() * Math.PI * 2;
+      const y = (Math.random() - 0.5) * 5.0; // 垂直分佈擾動
+      const scale = beltCfg.minSize + Math.random() * (beltCfg.maxSize - beltCfg.minSize);
+
+      dummy.position.set(radius * Math.cos(angle), y, radius * Math.sin(angle));
+      dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      this.asteroidBelt.setMatrixAt(i, dummy.matrix);
+    }
+    this.asteroidBelt.instanceMatrix.needsUpdate = true;
+    this.scene.add(this.asteroidBelt);
+
+    // 2. 柯伊伯帶 (Kuiper Belt)
+    const kCfg = KUIPER_BELT_CONFIG;
+    const kGeo = new THREE.TetrahedronGeometry(0.25, 0);
+    const kMat = new THREE.MeshStandardMaterial({
+      color: 0xaac7d8,
+      roughness: 0.6
+    });
+    this.kuiperBelt = new THREE.InstancedMesh(kGeo, kMat, kCfg.count);
+
+    for (let i = 0; i < kCfg.count; i++) {
+      const radius = kCfg.innerRadius + Math.random() * (kCfg.outerRadius - kCfg.innerRadius);
+      const angle = Math.random() * Math.PI * 2;
+      const y = (Math.random() - 0.5) * 12.0;
+      const scale = kCfg.minSize + Math.random() * (kCfg.maxSize - kCfg.minSize);
+
+      dummy.position.set(radius * Math.cos(angle), y, radius * Math.sin(angle));
+      dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      this.kuiperBelt.setMatrixAt(i, dummy.matrix);
+    }
+    this.kuiperBelt.instanceMatrix.needsUpdate = true;
+    this.scene.add(this.kuiperBelt);
+  }
+
+  /**
+   * 建立銀河系宏觀 3D 旋臂粒子系統與銀心核球 (Milky Way Galaxy)
+   */
+  createMilkyWayGalaxy() {
+    this.milkyWayGroup = new THREE.Group();
+
+    // 1. 銀河系 22,000 顆旋臂粒子系統
+    const particleCount = 22000;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+
+    const colorCore = new THREE.Color(0xfff5d0);   // 銀心亮金核
+    const colorMid = new THREE.Color(0xa855f7);    // 旋臂紫色星雲
+    const colorArm = new THREE.Color(0x38bdf8);    // 旋臂藍色恆星帶
+    const colorDust = new THREE.Color(0xf43f5e);   // 電離氫氣 HII 區域
+
+    const arms = 4;
+    const galaxyRadius = 2200;
+
+    for (let i = 0; i < particleCount; i++) {
+      const radius = Math.pow(Math.random(), 1.4) * galaxyRadius;
+      const spinAngle = radius * 0.0028;
+      const armAngle = ((i % arms) * 2 * Math.PI) / arms;
+
+      // 旋臂幾何擾動
+      const spread = (radius / galaxyRadius) * 220 + 30;
+      const randomX = (Math.random() - 0.5) * spread;
+      const randomY = (Math.random() - 0.5) * (180 * Math.exp(-radius / 600) + 25);
+      const randomZ = (Math.random() - 0.5) * spread;
+
+      const x = Math.cos(armAngle + spinAngle) * radius + randomX;
+      const y = randomY;
+      const z = Math.sin(armAngle + spinAngle) * radius + randomZ;
+
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
+
+      // 粒子顏色依核心到外緣漸層
+      const mixCol = colorCore.clone();
+      if (radius < galaxyRadius * 0.25) {
+        mixCol.lerp(colorMid, radius / (galaxyRadius * 0.25));
+      } else if (radius < galaxyRadius * 0.65) {
+        mixCol.lerp(colorArm, (radius - galaxyRadius * 0.25) / (galaxyRadius * 0.4));
+      } else {
+        mixCol.lerp(colorDust, (radius - galaxyRadius * 0.65) / (galaxyRadius * 0.35));
+      }
+
+      colors[i * 3] = mixCol.r;
+      colors[i * 3 + 1] = mixCol.g;
+      colors[i * 3 + 2] = mixCol.b;
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const mat = new THREE.PointsMaterial({
+      size: 4.5,
+      sizeAttenuation: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85
+    });
+
+    const galaxyPoints = new THREE.Points(geo, mat);
+    this.milkyWayGroup.add(galaxyPoints);
+
+    // 2. 銀心超亮核球 (Galactic Bulge)
+    const bulgeGeo = new THREE.SphereGeometry(90, 32, 32);
+    const bulgeMat = new THREE.MeshBasicMaterial({
+      color: 0xffedd5,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const bulge = new THREE.Mesh(bulgeGeo, bulgeMat);
+    this.milkyWayGroup.add(bulge);
+
+    // 3. 太陽系在銀河系獵戶臂上的定位圈標記
+    const sunBeaconGeo = new THREE.RingGeometry(24, 30, 48);
+    const sunBeaconMat = new THREE.MeshBasicMaterial({
+      color: 0x00f2fe,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.9
+    });
+    const sunBeacon = new THREE.Mesh(sunBeaconGeo, sunBeaconMat);
+    sunBeacon.rotation.x = Math.PI / 2;
+    this.milkyWayGroup.add(sunBeacon);
+
+    // 太陽系位置標籤
+    const sunLabelCanvas = document.createElement('canvas');
+    sunLabelCanvas.width = 300;
+    sunLabelCanvas.height = 64;
+    const sCtx = sunLabelCanvas.getContext('2d');
+    sCtx.font = 'bold 22px "Inter", "Segoe UI", sans-serif';
+    sCtx.fillStyle = '#00f2fe';
+    sCtx.textAlign = 'center';
+    sCtx.shadowColor = 'rgba(0,0,0,0.8)';
+    sCtx.shadowBlur = 6;
+    sCtx.fillText('☀️ 太陽系 (獵戶座次臂)', 150, 40);
+
+    const sunLabelTex = new THREE.CanvasTexture(sunLabelCanvas);
+    const sunLabelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunLabelTex, transparent: true, depthTest: false }));
+    sunLabelSprite.scale.set(36, 8, 1);
+    sunLabelSprite.position.set(0, 35, 0);
+    this.milkyWayGroup.add(sunLabelSprite);
+
+    this.scene.add(this.milkyWayGroup);
+  }
+
+  /**
+   * 建立已知黑洞 (包含目前已知最靠近太陽系的 Gaia BH1 與銀心人馬座 A*)
+   */
+  createBlackHoles() {
+    BLACK_HOLES_DATA.forEach(bh => {
+      const bhGroup = new THREE.Group();
+      const coords = bh.visualCoords;
+      bhGroup.position.set(coords.x, coords.y, coords.z);
+
+      // 1. 黑洞事件視界 (Event Horizon - 絕對純黑吸光球體)
+      const horizonRadius = bh.id === 'sgr_a_star' ? 15.0 : 4.8;
+      const horizonGeo = new THREE.SphereGeometry(horizonRadius, 32, 32);
+      const horizonMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const horizonMesh = new THREE.Mesh(horizonGeo, horizonMat);
+      horizonMesh.userData = { id: bh.id, name: bh.zhName, isBlackHole: true };
+      bhGroup.add(horizonMesh);
+
+      // 2. 相對論吸積盤 (Relativistic Accretion Disk)
+      const diskInner = horizonRadius * 1.25;
+      const diskOuter = horizonRadius * 4.2;
+      const diskGeo = new THREE.RingGeometry(diskInner, diskOuter, 64);
+      const diskMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(bh.glowColor),
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const diskMesh = new THREE.Mesh(diskGeo, diskMat);
+      diskMesh.rotation.x = Math.PI / 3;
+      bhGroup.add(diskMesh);
+
+      // 3. 重力透鏡光子球層 (Gravitational Lensing Photon Sphere)
+      const photonGeo = new THREE.RingGeometry(horizonRadius * 0.95, horizonRadius * 1.35, 48);
+      const photonMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(bh.color),
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const photonMesh = new THREE.Mesh(photonGeo, photonMat);
+      photonMesh.rotation.x = Math.PI / 3;
+      bhGroup.add(photonMesh);
+
+      // 4. 伴星 (如果是恆星級雙星黑洞系統 Gaia BH1 / Gaia BH3)
+      let companionMesh = null;
+      if (bh.companionStar) {
+        const starGeo = new THREE.SphereGeometry(1.8, 24, 24);
+        const starMat = new THREE.MeshBasicMaterial({ color: 0xfff4c2 });
+        companionMesh = new THREE.Mesh(starGeo, starMat);
+        companionMesh.position.set(horizonRadius * 4.2, 0, 0);
+        bhGroup.add(companionMesh);
+      }
+
+      // 5. 太陽系到黑洞的星際距離雷射指引光束 (Interstellar Distance Beam)
+      const points = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(coords.x, coords.y, coords.z)];
+      const beamGeo = new THREE.BufferGeometry().setFromPoints(points);
+      const beamMat = new THREE.LineDashedMaterial({
+        color: new THREE.Color(bh.glowColor),
+        dashSize: 10,
+        gapSize: 6,
+        transparent: true,
+        opacity: bh.isClosest ? 0.95 : 0.5
+      });
+      const beamLine = new THREE.Line(beamGeo, beamMat);
+      beamLine.computeLineDistances();
+      this.scene.add(beamLine);
+
+      // 6. 3D 浮動標籤 (標示黑洞名稱與光年距離)
+      const canvas = document.createElement('canvas');
+      canvas.width = 420;
+      canvas.height = 90;
+      const ctx = canvas.getContext('2d');
+      ctx.font = 'bold 24px "Inter", "Segoe UI", sans-serif';
+      ctx.fillStyle = bh.isClosest ? '#ec4899' : '#a855f7';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = 8;
+      ctx.fillText(`🕳️ ${bh.zhName}`, 210, 36);
+      ctx.font = 'bold 18px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`距離太陽系: ${bh.distanceLy.toLocaleString()} 光年`, 210, 72);
+
+      const labelTex = new THREE.CanvasTexture(canvas);
+      const labelMat = new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false });
+      const sprite = new THREE.Sprite(labelMat);
+      sprite.scale.set(38, 8.5, 1);
+      sprite.position.set(0, horizonRadius + 14, 0);
+      bhGroup.add(sprite);
+
+      this.scene.add(bhGroup);
+      this.blackHoleObjects.set(bh.id, {
+        group: bhGroup,
+        mesh: horizonMesh,
+        diskMesh: diskMesh,
+        companionMesh: companionMesh,
+        beamLine: beamLine,
+        label: sprite,
+        data: bh
+      });
+    });
+  }
+
+  /**
+   * 根據模擬狀態更新 3D 場景中所有物件的位置與旋轉
+   */
+  updateSceneObjects() {
+    const states = this.simulation.planetStates;
+
+    // 1. 更新太陽
+    const sunState = states.get('sun');
+    const sunObj = this.planetMeshes.get('sun');
+    if (sunObj && sunState) {
+      sunObj.mesh.rotation.y = sunState.rotationAngle;
+    }
+
+    // 2. 更新各大行星
+    PLANETS_DATA.forEach(planet => {
+      if (planet.id === 'sun') return;
+      const state = states.get(planet.id);
+      const obj = this.planetMeshes.get(planet.id);
+      if (!state || !obj) return;
+
+      // 更新行星位置
+      obj.group.position.set(state.x, state.y, state.z);
+
+      // 更新行星自轉
+      obj.mesh.rotation.y = state.rotationAngle;
+
+      // 地球雲層自轉與月球公轉
+      if (planet.id === 'earth') {
+        if (this.earthClouds) {
+          this.earthClouds.rotation.y = state.rotationAngle * 1.15;
+        }
+        if (this.moonMesh) {
+          const mDist = planet.moon.orbitDistance;
+          const mAngle = state.moonOrbitAngle;
+          const moonIncRad = THREE.MathUtils.degToRad(5.14);
+          this.moonMesh.position.set(
+            mDist * Math.cos(mAngle),
+            mDist * Math.sin(mAngle) * Math.sin(moonIncRad),
+            mDist * Math.sin(mAngle) * Math.cos(moonIncRad)
+          );
+          this.moonMesh.rotation.y = mAngle;
+        }
+      }
+
+    // 更新地月系統專屬高精度陰影方向光 (實現真實日食/月食/晨昏線陰影)
+    const earthState = states.get('earth');
+    if (earthState && this.earthSunLight) {
+      const earthPos = new THREE.Vector3(earthState.x, earthState.y, earthState.z);
+      this.earthSunLight.target.position.copy(earthPos);
+      const dirFromSun = earthPos.clone().normalize();
+      this.earthSunLight.position.copy(earthPos).sub(dirFromSun.clone().multiplyScalar(30));
+      this.earthSunLight.target.updateMatrixWorld();
+    }
+
+      // 更新日心方位角指示射線
+      const rayLine = this.azimuthLines.get(planet.id);
+      if (rayLine) {
+        const positions = rayLine.geometry.attributes.position.array;
+        positions[0] = 0;
+        positions[1] = 0;
+        positions[2] = 0;
+        positions[3] = state.x;
+        positions[4] = state.y;
+        positions[5] = state.z;
+        rayLine.geometry.attributes.position.needsUpdate = true;
+        rayLine.computeLineDistances();
+      }
+    });
+
+    // 3. 小行星帶微幅自轉動畫
+    if (this.asteroidBelt) {
+      this.asteroidBelt.rotation.y += 0.0003;
+    }
+    if (this.kuiperBelt) {
+      this.kuiperBelt.rotation.y += 0.0001;
+    }
+
+    // 4. 銀河系緩慢旋轉與黑洞吸積盤動畫
+    if (this.milkyWayGroup) {
+      this.milkyWayGroup.rotation.y += 0.00008;
+    }
+    this.blackHoleObjects.forEach(bhObj => {
+      if (bhObj.diskMesh) {
+        bhObj.diskMesh.rotation.z += 0.025; // 吸積盤高速旋轉
+      }
+      if (bhObj.companionMesh) {
+        const time = performance.now() * 0.001;
+        const orbitR = bhObj.data.id === 'sgr_a_star' ? 45 : 18;
+        bhObj.companionMesh.position.set(
+          orbitR * Math.cos(time * 0.6),
+          2 * Math.sin(time * 0.6),
+          orbitR * Math.sin(time * 0.6)
+        );
+      }
+    });
+
+    // 5. 相機跟隨與平滑過渡
+    this.updateCameraFollow();
+  }
+
+  updateCameraFollow() {
+    if (this.cameraLerpTarget && this.controlsTargetLerp) {
+      this.camera.position.lerp(this.cameraLerpTarget, 0.08);
+      this.controls.target.lerp(this.controlsTargetLerp, 0.08);
+
+      // 當接近目標點時解除過渡動畫
+      if (this.camera.position.distanceTo(this.cameraLerpTarget) < 0.3) {
+        this.cameraLerpTarget = null;
+        this.controlsTargetLerp = null;
+      }
+    } else if (this.focusedPlanetId) {
+      // 正在鎖定跟隨某星球
+      const state = this.simulation.planetStates.get(this.focusedPlanetId);
+      if (state) {
+        const targetPos = new THREE.Vector3(state.x, state.y, state.z);
+        const deltaTarget = new THREE.Vector3().subVectors(targetPos, this.controls.target);
+        this.camera.position.add(deltaTarget);
+        this.controls.target.copy(targetPos);
+      }
+    }
+  }
+
+  /**
+   * 鏡頭聚焦至特定天體
+   */
+  focusOnPlanet(planetId) {
+    this.focusedPlanetId = planetId;
+    this.focusedBlackHoleId = null;
+    const state = this.simulation.planetStates.get(planetId);
+    const obj = this.planetMeshes.get(planetId);
+    if (!state || !obj) return;
+
+    const pRadius = obj.data.visualRadius;
+    const offsetDistance = Math.max(pRadius * 5.0, 8.0);
+
+    const targetPos = new THREE.Vector3(state.x, state.y, state.z);
+    const cameraTarget = new THREE.Vector3(
+      state.x + offsetDistance * 0.8,
+      state.y + offsetDistance * 0.5,
+      state.z + offsetDistance * 0.8
+    );
+
+    this.controlsTargetLerp = targetPos;
+    this.cameraLerpTarget = cameraTarget;
+  }
+
+  /**
+   * 鏡頭聚焦至特定黑洞 (Gaia BH1, Gaia BH3, Sgr A*)
+   */
+  focusOnBlackHole(bhId) {
+    this.focusedPlanetId = null;
+    this.focusedBlackHoleId = bhId;
+    this.isTopDownView = false;
+    const bhObj = this.blackHoleObjects.get(bhId);
+    if (!bhObj) return;
+
+    const coords = bhObj.data.visualCoords;
+    const targetPos = new THREE.Vector3(coords.x, coords.y, coords.z);
+    const offset = bhId === 'sgr_a_star' ? 65 : 28;
+    const cameraTarget = new THREE.Vector3(
+      coords.x + offset * 0.8,
+      coords.y + offset * 0.45,
+      coords.z + offset * 0.8
+    );
+    this.controlsTargetLerp = targetPos;
+    this.cameraLerpTarget = cameraTarget;
+  }
+
+  /**
+   * 切換銀河系宏觀全景視角 (Milky Way Galaxy View)
+   */
+  setMilkyWayView() {
+    this.focusedPlanetId = null;
+    this.focusedBlackHoleId = null;
+    this.isTopDownView = false;
+    this.controlsTargetLerp = new THREE.Vector3(0, 0, 0);
+    this.cameraLerpTarget = new THREE.Vector3(0, 1800, 1650);
+  }
+
+  /**
+   * 切換以地球為主體的視角 / 地月系統特寫 (Earth-Centered Geocentric Mode)
+   */
+  setEarthCenteredView() {
+    this.focusedPlanetId = 'earth';
+    this.focusedBlackHoleId = null;
+    this.isTopDownView = false;
+    const state = this.simulation.planetStates.get('earth');
+    if (!state) return;
+
+    const targetPos = new THREE.Vector3(state.x, state.y, state.z);
+    const cameraTarget = new THREE.Vector3(
+      state.x + 6.8,
+      state.y + 4.2,
+      state.z + 6.8
+    );
+    this.controlsTargetLerp = targetPos;
+    this.cameraLerpTarget = cameraTarget;
+  }
+
+  /**
+   * 切換俯瞰視角 (Top-Down Heliocentric View)
+   */
+  setTopDownView() {
+    this.focusedPlanetId = null;
+    this.focusedBlackHoleId = null;
+    this.isTopDownView = true;
+    this.controlsTargetLerp = new THREE.Vector3(0, 0, 0);
+    this.cameraLerpTarget = new THREE.Vector3(0, 360, 0.01);
+  }
+
+  /**
+   * 重設為太陽系全局 3D 視角
+   */
+  resetFreeOrbitView() {
+    this.focusedPlanetId = null;
+    this.focusedBlackHoleId = null;
+    this.isTopDownView = false;
+    this.controlsTargetLerp = new THREE.Vector3(0, 0, 0);
+    this.cameraLerpTarget = new THREE.Vector3(0, 140, 260);
+  }
+
+  /**
+   * 切換各圖層可見度
+   */
+  toggleLayer(layerName, visible) {
+    if (this.layers.hasOwnProperty(layerName)) {
+      this.layers[layerName] = visible;
+    }
+
+    switch (layerName) {
+      case 'orbits':
+        this.orbitLines.forEach(line => line.visible = visible);
+        break;
+      case 'azimuthRays':
+        this.azimuthLines.forEach(line => line.visible = visible);
+        break;
+      case 'labels':
+        this.planetLabels.forEach(label => label.visible = visible);
+        if (this.moonLabel) this.moonLabel.visible = visible;
+        this.blackHoleObjects.forEach(b => b.label.visible = visible);
+        break;
+      case 'moonOrbit':
+        if (this.moonOrbitLine) this.moonOrbitLine.visible = visible;
+        if (this.moonLabel) this.moonLabel.visible = visible;
+        break;
+      case 'eclipticGrid':
+        if (this.eclipticGrid) this.eclipticGrid.visible = visible;
+        break;
+      case 'asteroidBelt':
+        if (this.asteroidBelt) this.asteroidBelt.visible = visible;
+        if (this.kuiperBelt) this.kuiperBelt.visible = visible;
+        break;
+      case 'milkyWay':
+        if (this.milkyWayGroup) this.milkyWayGroup.visible = visible;
+        break;
+      case 'blackHoles':
+        this.blackHoleObjects.forEach(b => {
+          b.group.visible = visible;
+          b.beamLine.visible = visible;
+        });
+        break;
+    }
+  }
+
+  onPointerDown(event) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const meshesToTest = [];
+    this.planetMeshes.forEach(p => {
+      meshesToTest.push(p.mesh);
+    });
+    this.blackHoleObjects.forEach(bh => {
+      meshesToTest.push(bh.mesh);
+    });
+
+    const intersects = this.raycaster.intersectObjects(meshesToTest, true);
+    if (intersects.length > 0) {
+      let hitMesh = intersects[0].object;
+      while (hitMesh && !hitMesh.userData.id && hitMesh.parent) {
+        hitMesh = hitMesh.parent;
+      }
+      if (hitMesh && hitMesh.userData && hitMesh.userData.id) {
+        if (hitMesh.userData.isBlackHole && window.onBlackHoleSelected) {
+          window.onBlackHoleSelected(hitMesh.userData.id);
+        } else if (window.onPlanetSelected) {
+          window.onPlanetSelected(hitMesh.userData.id);
+        }
+      }
+    }
+  }
+
+  onWindowResize() {
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height);
+  }
+
+  render() {
+    this.controls.update();
+    this.updateSceneObjects();
+    this.renderer.render(this.scene, this.camera);
+  }
+}

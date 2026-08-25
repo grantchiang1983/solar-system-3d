@@ -1,0 +1,814 @@
+/* ==========================================================================
+   3D 太陽系互動觀測系統 - 現代航太科技視覺樣式 (Aero-Cyber Glassmorphism)
+   ========================================================================== */
+
+:root {
+  --bg-space: #030712;
+  --panel-bg: rgba(11, 19, 38, 0.72);
+  --panel-border: rgba(64, 120, 200, 0.25);
+  --panel-border-hover: rgba(0, 242, 254, 0.5);
+  --accent-cyan: #00f2fe;
+  --accent-blue: #4facfe;
+  --accent-gold: #ffd166;
+  --accent-green: #06d6a0;
+  --accent-red: #ef476f;
+  --text-main: #f3f6fc;
+  --text-muted: #8ba2c4;
+  --text-dim: #50688a;
+  --font-mono: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --blur-val: blur(14px);
+  --shadow-glow: 0 0 20px rgba(0, 242, 254, 0.15);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-space);
+  font-family: var(--font-ui);
+  color: var(--text-main);
+}
+
+#canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* ==========================================================================
+   頂部導覽列 (Top Header Bar)
+   ========================================================================== */
+.top-header {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  right: 20px;
+  height: 54px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel-bg);
+  backdrop-filter: var(--blur-val);
+  border: 1px solid var(--panel-border);
+  padding: 8px 18px;
+  border-radius: var(--radius-lg);
+  pointer-events: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.brand-icon {
+  font-size: 22px;
+  filter: drop-shadow(0 0 8px #ffaa00);
+}
+
+.brand-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, #ffffff 0%, var(--accent-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-left: 4px;
+}
+
+.time-telemetry-badge {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--panel-bg);
+  backdrop-filter: var(--blur-val);
+  border: 1px solid var(--panel-border);
+  padding: 8px 18px;
+  border-radius: var(--radius-lg);
+  pointer-events: auto;
+  font-family: var(--font-mono);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.time-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.time-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.time-val {
+  font-size: 14px;
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   行星快速選取標籤列 (Planet Quick Chips)
+   ========================================================================== */
+.planet-chips-bar {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  background: var(--panel-bg);
+  backdrop-filter: var(--blur-val);
+  border: 1px solid var(--panel-border);
+  padding: 6px 12px;
+  border-radius: 30px;
+  z-index: 10;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  max-width: 92vw;
+  overflow-x: auto;
+}
+
+.planet-chips-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.planet-chip {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.planet-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+}
+
+.planet-chip.active {
+  background: rgba(0, 242, 254, 0.18);
+  border-color: var(--accent-cyan);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.3);
+}
+
+.chip-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* ==========================================================================
+   左側即時日心遙測面板 (Heliocentric Telemetry Matrix)
+   ========================================================================== */
+.panel-left-telemetry {
+  position: absolute;
+  top: 130px;
+  left: 20px;
+  width: 380px;
+  max-height: calc(100vh - 250px);
+  background: var(--panel-bg);
+  backdrop-filter: var(--blur-val);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green);
+  animation: pulseLive 1.8s infinite;
+}
+
+@keyframes pulseLive {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+.table-scroll-container {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.table-scroll-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: 4px;
+}
+
+.telemetry-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.telemetry-table th {
+  text-align: right;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 6px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.telemetry-table th:first-child {
+  text-align: left;
+}
+
+.telemetry-row {
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.telemetry-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.telemetry-row.active-row {
+  background: rgba(0, 242, 254, 0.12);
+  outline: 1px solid rgba(0, 242, 254, 0.35);
+}
+
+.telemetry-table td {
+  padding: 7px 8px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.col-planet {
+  text-align: left !important;
+  font-family: var(--font-ui) !important;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+}
+
+.row-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.col-azimuth {
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.col-speed {
+  color: var(--accent-gold);
+}
+
+.col-dist {
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   右側天體詳細資訊卡片 (Planet Detail Inspector)
+   ========================================================================== */
+.panel-right-inspector {
+  position: absolute;
+  top: 130px;
+  right: 20px;
+  width: 380px;
+  max-height: calc(100vh - 250px);
+  background: var(--panel-bg);
+  backdrop-filter: var(--blur-val);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  z-index: 10;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.panel-right-inspector::-webkit-scrollbar {
+  width: 4px;
+}
+
+.panel-right-inspector::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: 4px;
+}
+
+.card-header {
+  border-left: 4px solid var(--accent-cyan);
+  padding-left: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.planet-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.planet-en-name {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.planet-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-top: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.planet-badge.star {
+  background: rgba(255, 170, 0, 0.2);
+  color: #ffaa00;
+}
+
+.btn-focus-direct {
+  background: rgba(0, 242, 254, 0.15);
+  border: 1px solid var(--accent-cyan);
+  color: #ffffff;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-focus-direct:hover {
+  background: var(--accent-cyan);
+  color: #030712;
+}
+
+/* 遙測即時卡片四格網格 */
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.metric-box {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+.metric-box.highlight {
+  background: rgba(0, 242, 254, 0.07);
+  border-color: rgba(0, 242, 254, 0.3);
+}
+
+.metric-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.metric-value {
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: #ffffff;
+}
+
+.metric-box.highlight .metric-value {
+  color: var(--accent-cyan);
+}
+
+.metric-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+}
+
+.section-title {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+}
+
+.specs-table {
+  width: 100%;
+  font-size: 11px;
+  margin-bottom: 16px;
+}
+
+.specs-table td {
+  padding: 4px 0;
+}
+
+.specs-table td:first-child {
+  color: var(--text-dim);
+  width: 38%;
+}
+
+.specs-table td:last-child {
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.planet-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.fun-fact-box {
+  background: rgba(255, 209, 102, 0.08);
+  border: 1px solid rgba(255, 209, 102, 0.25);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #ffe6a7;
+  display: flex;
+  gap: 8px;
+}
+
+/* ==========================================================================
+   地月系統專屬面板樣式 (Earth-Moon Telemetry Card)
+   ========================================================================== */
+.moon-system-card {
+  background: rgba(30, 60, 110, 0.25);
+  border: 1px solid rgba(100, 180, 255, 0.35);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(0, 50, 120, 0.2);
+}
+
+.moon-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.moon-icon {
+  font-size: 16px;
+  filter: drop-shadow(0 0 6px rgba(180, 220, 255, 0.8));
+}
+
+.moon-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #bfe0ff;
+  letter-spacing: 0.5px;
+}
+
+.moon-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.moon-stat {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.m-lbl {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.m-val {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: #90d5ff;
+  margin-top: 2px;
+}
+
+.btn-earth-view-mode {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(0, 120, 255, 0.25), rgba(0, 242, 254, 0.25));
+  border: 1px solid var(--accent-cyan);
+  color: #ffffff;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-earth-view-mode:hover {
+  background: var(--accent-cyan);
+  color: #030712;
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.4);
+}
+
+/* ==========================================================================
+   底部懸浮控制中心 (Floating Bottom Control Dock)
+   ========================================================================== */
+.bottom-dock {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  background: var(--panel-bg);
+  backdrop-filter: var(--blur-val);
+  border: 1px solid var(--panel-border);
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  z-index: 10;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  align-items: center;
+  max-width: 95vw;
+}
+
+.dock-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dock-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 4px;
+}
+
+.dock-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.dock-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.dock-btn.active {
+  background: rgba(0, 242, 254, 0.2);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.speed-btn-group {
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.speed-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.speed-btn:hover {
+  color: var(--text-main);
+}
+
+.speed-btn.active {
+  background: var(--accent-cyan);
+  color: #030712;
+  font-weight: 700;
+}
+
+/* 圖層多選核取方塊樣式 */
+.layers-group {
+  display: flex;
+  gap: 10px;
+}
+
+.layer-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.layer-label input[type="checkbox"] {
+  accent-color: var(--accent-cyan);
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   黑洞與銀河系專屬視覺樣式 (Black Holes & Milky Way Styles)
+   ========================================================================== */
+
+.chip-separator {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 4px;
+}
+
+.black-hole-chip {
+  background: rgba(147, 51, 234, 0.18) !important;
+  border-color: rgba(168, 85, 247, 0.45) !important;
+  color: #e9d5ff !important;
+}
+
+.black-hole-chip:hover {
+  background: rgba(168, 85, 247, 0.35) !important;
+  border-color: #c084fc !important;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+}
+
+.black-hole-chip.active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.6), rgba(236, 72, 153, 0.6)) !important;
+  border-color: #f472b6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(236, 72, 153, 0.6);
+}
+
+.bh-dot {
+  box-shadow: 0 0 8px currentColor;
+  animation: pulse-bh 2s infinite ease-in-out;
+}
+
+@keyframes pulse-bh {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.35); opacity: 1; }
+}
+
+.dock-btn.highlight-bh {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.3));
+  border-color: rgba(236, 72, 153, 0.6);
+  color: #fbcfe8;
+}
+
+.dock-btn.highlight-bh:hover, .dock-btn.highlight-bh.active {
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  border-color: #f472b6;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(236, 72, 153, 0.6);
+}
+
+.black-hole-badge {
+  background: rgba(168, 85, 247, 0.25) !important;
+  color: #e879f9 !important;
+  border: 1px solid rgba(232, 121, 249, 0.5) !important;
+}
+
+.bh-focus-btn {
+  background: rgba(168, 85, 247, 0.2) !important;
+  border-color: #c084fc !important;
+  color: #f5d0fe !important;
+}
+
+.bh-focus-btn:hover {
+  background: #a855f7 !important;
+  color: #ffffff !important;
+}
+
+.highlight-bh-box {
+  background: rgba(147, 51, 234, 0.15) !important;
+  border-color: rgba(216, 70, 239, 0.4) !important;
+}
+
+.black-hole-fact {
+  background: rgba(147, 51, 234, 0.12) !important;
+  border-color: rgba(192, 132, 252, 0.35) !important;
+}
+
+/* ==========================================================================
+   RWD 自適應排版
+   ========================================================================== */
+@media (max-width: 1100px) {
+  .panel-left-telemetry {
+    width: 300px;
+  }
+  .panel-right-inspector {
+    width: 300px;
+  }
+}
+
+@media (max-width: 900px) {
+  .panel-left-telemetry {
+    display: none; /* 小螢幕自動收折左側矩陣 */
+  }
+  .panel-right-inspector {
+    width: calc(100vw - 40px);
+    top: auto;
+    bottom: 80px;
+    right: 20px;
+    max-height: 200px;
+  }
+  .bottom-dock {
+    flex-wrap: wrap;
+    justify-content: center;
+    bottom: 10px;
+  }
+}

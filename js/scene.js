@@ -220,7 +220,7 @@ class SolarScene {
     const sunGroup = new THREE.Group();
     const texLoader = new THREE.TextureLoader();
 
-    // 1. 太陽球體 (NASA 2K 高解析太陽日冕電漿紋理)
+    // 1. 太陽球體 (NASA 2K 高解析太陽日冕電漿紋理，清晰純淨無多餘白霧)
     const sunTexture = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.sun)
       ? texLoader.load(NASA_TEXTURES.sun)
       : TextureGenerator.createSunTexture(1024, 512);
@@ -234,40 +234,18 @@ class SolarScene {
     sunMesh.userData = { id: data.id, name: data.zhName };
     sunGroup.add(sunMesh);
 
-    // 2. 太陽外層日冕動態光暈 (Corona Rayleigh-Mie Glow)
-    const glowGeo = new THREE.SphereGeometry(data.visualRadius * 1.28, 32, 32);
+    // 2. 微光日冕 (緊貼太陽邊緣的微幅柔和金橙光暈，不遮擋地表與視線)
+    const glowGeo = new THREE.SphereGeometry(data.visualRadius * 1.04, 32, 32);
     const glowMat = new THREE.MeshBasicMaterial({
-      color: 0xffaa00,
+      color: 0xff8800,
       transparent: true,
-      opacity: 0.32,
+      opacity: 0.18,
       side: THREE.BackSide,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const glowMesh = new THREE.Mesh(glowGeo, glowMat);
     sunGroup.add(glowMesh);
-
-    // 3. 太陽磁場日珥耀斑環 (Solar Prominences & Magnetic Flares)
-    const flareRings = [];
-    const flareColors = [0xff4500, 0xff7700, 0xffaa00];
-    for (let f = 0; f < 3; f++) {
-      const fRadius = data.visualRadius * (1.02 + f * 0.08);
-      const fGeo = new THREE.RingGeometry(fRadius, fRadius + 1.2, 64);
-      const fMat = new THREE.MeshBasicMaterial({
-        color: flareColors[f],
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.55 - f * 0.12,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const fMesh = new THREE.Mesh(fGeo, fMat);
-      fMesh.rotation.x = (f * Math.PI) / 3;
-      fMesh.rotation.y = (f * Math.PI) / 4;
-      sunGroup.add(fMesh);
-      flareRings.push(fMesh);
-    }
-    sunGroup.userData.flareRings = flareRings;
 
     this.scene.add(sunGroup);
     this.planetMeshes.set(data.id, {
@@ -918,7 +896,7 @@ class SolarScene {
     lowerHaloMesh.scale.set(1.02, 1.02, 1.02);
     this.milkyWayGroup.add(lowerHaloMesh);
 
-    // 3. 銀心超亮核球 (Galactic Bulge)
+    // 3. 銀心超亮核球 (Galactic Bulge - 位於人馬座 A* 銀心位置 z = -1400，遠離太陽系)
     const bulgeGeo = new THREE.SphereGeometry(95, 32, 32);
     const bulgeMat = new THREE.MeshBasicMaterial({
       color: 0xffedd5,
@@ -928,6 +906,7 @@ class SolarScene {
       depthWrite: false
     });
     const bulge = new THREE.Mesh(bulgeGeo, bulgeMat);
+    bulge.position.set(0, 0, -1400);
     this.milkyWayGroup.add(bulge);
 
     // 3. 太陽系在銀河系獵戶臂上的定位圈標記

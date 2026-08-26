@@ -896,7 +896,7 @@ class SolarScene {
     lowerHaloMesh.scale.set(1.02, 1.02, 1.02);
     this.milkyWayGroup.add(lowerHaloMesh);
 
-    // 3. 銀心超亮核球 (Galactic Bulge - 位於人馬座 A* 銀心位置 z = -1400，遠離太陽系)
+    // 3. 銀心超亮核球 (Galactic Bulge - 位於銀心 (0, 0, 0) 本地座標，即世界座標 z = -1400 人馬座 A* 處)
     const bulgeGeo = new THREE.SphereGeometry(95, 32, 32);
     const bulgeMat = new THREE.MeshBasicMaterial({
       color: 0xffedd5,
@@ -906,10 +906,10 @@ class SolarScene {
       depthWrite: false
     });
     const bulge = new THREE.Mesh(bulgeGeo, bulgeMat);
-    bulge.position.set(0, 0, -1400);
+    bulge.position.set(0, 0, 0);
     this.milkyWayGroup.add(bulge);
 
-    // 3. 太陽系在銀河系獵戶臂上的定位圈標記
+    // 4. 太陽系在銀河系獵戶臂上的定位圈標記 (位於本地座標 (0, 0, 1400)，即世界座標太陽系 (0,0,0) 處)
     const sunBeaconGeo = new THREE.RingGeometry(24, 30, 48);
     const sunBeaconMat = new THREE.MeshBasicMaterial({
       color: 0x00f2fe,
@@ -919,6 +919,7 @@ class SolarScene {
     });
     const sunBeacon = new THREE.Mesh(sunBeaconGeo, sunBeaconMat);
     sunBeacon.rotation.x = Math.PI / 2;
+    sunBeacon.position.set(0, 0, 1400);
     this.milkyWayGroup.add(sunBeacon);
 
     // 太陽系位置標籤
@@ -936,9 +937,12 @@ class SolarScene {
     const sunLabelTex = new THREE.CanvasTexture(sunLabelCanvas);
     const sunLabelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunLabelTex, transparent: true, depthTest: false }));
     sunLabelSprite.scale.set(36, 8, 1);
-    sunLabelSprite.position.set(0, 35, 0);
+    sunLabelSprite.position.set(0, 35, 1400);
     this.milkyWayGroup.add(sunLabelSprite);
 
+    // 將整個銀河系群組的世界中心定位在銀心 (z = -1400 人馬座 A* 超大質量黑洞處)
+    // 使得銀河系的自轉完全圍繞銀心旋轉，而非圍繞太陽！
+    this.milkyWayGroup.position.set(0, 0, -1400);
     this.scene.add(this.milkyWayGroup);
   }
 
@@ -1311,8 +1315,8 @@ class SolarScene {
     this.focusedPlanetId = null;
     this.focusedBlackHoleId = null;
     this.isTopDownView = false;
-    this.controlsTargetLerp = new THREE.Vector3(0, 0, 0);
-    this.cameraLerpTarget = new THREE.Vector3(0, 1800, 1650);
+    this.controlsTargetLerp = new THREE.Vector3(0, 0, -700);
+    this.cameraLerpTarget = new THREE.Vector3(0, 2400, 1800);
   }
 
   /**

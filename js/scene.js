@@ -1210,10 +1210,8 @@ class SolarScene {
       this.kuiperBelt.rotation.y += 0.0001;
     }
 
-    // 4. 銀河系緩慢旋轉與黑洞廣義相對論吸積盤、光弧與噴流動畫
-    if (this.milkyWayGroup) {
-      this.milkyWayGroup.rotation.y += 0.00008;
-    }
+    // 4. 銀河系宏觀星盤（因 1 個銀河年長達 2.3 億年，在行星模擬時間尺度下作為精確宇宙慣性參考系，保持獵戶座次臂與太陽系精確鎖定）
+    // 內部黑洞之廣義相對論極限吸積盤、光弧與噴流則維持高速相對論差動旋轉
     this.blackHoleObjects.forEach(bhObj => {
       if (bhObj.diskMesh) {
         bhObj.diskMesh.rotation.z += 0.025; // 吸積盤高速相對論差動旋轉

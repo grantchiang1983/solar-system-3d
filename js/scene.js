@@ -864,21 +864,39 @@ class SolarScene {
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
+    // 使用極致柔和高斯光暈圓形星點貼圖 (Star Sprite)，徹底消除方塊點精靈瑕疵
+    const starSpriteTex = TextureGenerator.createStarSpriteTexture();
     const mat = new THREE.PointsMaterial({
-      size: 4.5,
+      size: 7.5,
+      map: starSpriteTex,
       sizeAttenuation: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       vertexColors: true,
       transparent: true,
-      opacity: 0.85
+      opacity: 0.92
     });
 
     const galaxyPoints = new THREE.Points(geo, mat);
     this.milkyWayGroup.add(galaxyPoints);
 
-    // 2. 銀心超亮核球 (Galactic Bulge)
-    const bulgeGeo = new THREE.SphereGeometry(90, 32, 32);
+    // 2. 2K 超高解析度銀河系棒旋星盤 (Continuous 2K Barred Spiral Galactic Disc)
+    const mwDiskTex = TextureGenerator.createMilkyWayDiskTexture(2048);
+    const mwDiskGeo = new THREE.PlaneGeometry(galaxyRadius * 2.15, galaxyRadius * 2.15);
+    const mwDiskMat = new THREE.MeshBasicMaterial({
+      map: mwDiskTex,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.72,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const mwDiskMesh = new THREE.Mesh(mwDiskGeo, mwDiskMat);
+    mwDiskMesh.rotation.x = -Math.PI / 2;
+    this.milkyWayGroup.add(mwDiskMesh);
+
+    // 3. 銀心超亮核球 (Galactic Bulge)
+    const bulgeGeo = new THREE.SphereGeometry(95, 32, 32);
     const bulgeMat = new THREE.MeshBasicMaterial({
       color: 0xffedd5,
       transparent: true,

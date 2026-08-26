@@ -850,4 +850,146 @@ class TextureGenerator {
     const tex = new THREE.CanvasTexture(canvas);
     return tex;
   }
+
+  /**
+   * 建立極致柔和的高斯光暈圓形星點貼圖 (Star Flare Sprite Texture)
+   * 徹底杜絕 WebGL 點精靈在無貼圖時預設繪製的正方形白方塊 (Square Point Artifacts)
+   */
+  static createStarSpriteTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const cx = 64;
+    const cy = 64;
+
+    // 徑向多層高斯柔和漸層
+    const radGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 64);
+    radGrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    radGrad.addColorStop(0.12, 'rgba(255, 255, 255, 0.95)');
+    radGrad.addColorStop(0.28, 'rgba(215, 235, 255, 0.6)');
+    radGrad.addColorStop(0.55, 'rgba(160, 195, 255, 0.2)');
+    radGrad.addColorStop(0.85, 'rgba(120, 160, 255, 0.05)');
+    radGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = radGrad;
+    ctx.fillRect(0, 0, 128, 128);
+
+    // 4 向微細天文星芒繞射尖角 (Diffraction Spikes)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.moveTo(cx - 48, cy); ctx.lineTo(cx + 48, cy);
+    ctx.moveTo(cx, cy - 48); ctx.lineTo(cx, cy + 48);
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
+
+  /**
+   * 建立 2K 超高解析度銀河系棒旋星系結構貼圖 (Barred Spiral Galaxy Texture, 2048x2048)
+   * 包含中心棒狀核球、四條主要旋臂、藍色 OB 恆星群、粉紅 HII 電離星雲與深色星際塵埃裂縫 (Dark Dust Lanes)
+   */
+  static createMilkyWayDiskTexture(size = 2048) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const cx = size / 2;
+    const cy = size / 2;
+
+    ctx.clearRect(0, 0, size, size);
+
+    // 1. 銀心核球 (Galactic Bulge & Central Bar, 金白高光)
+    const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.22);
+    coreGrad.addColorStop(0.0, 'rgba(255, 255, 240, 1.0)');
+    coreGrad.addColorStop(0.15, 'rgba(255, 240, 200, 0.95)');
+    coreGrad.addColorStop(0.4, 'rgba(255, 200, 130, 0.55)');
+    coreGrad.addColorStop(0.7, 'rgba(200, 140, 90, 0.2)');
+    coreGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = coreGrad;
+    ctx.fillRect(0, 0, size, size);
+
+    // 棒狀結構 (Barred Core)
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 4);
+    const barGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.18);
+    barGrad.addColorStop(0, 'rgba(255, 250, 220, 0.85)');
+    barGrad.addColorStop(0.5, 'rgba(255, 210, 150, 0.4)');
+    barGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = barGrad;
+    ctx.scale(2.2, 0.8);
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 2. 四條主要對數螺旋旋臂 (Perseus, Scutum-Centaurus, Sagittarius, Outer-Norma)
+    const arms = 4;
+    const maxR = size * 0.46;
+    const minR = size * 0.08;
+
+    for (let a = 0; a < arms; a++) {
+      const baseAngle = (a * Math.PI * 2) / arms;
+
+      // 沿旋臂生成星雲流
+      for (let s = 0; s < 600; s++) {
+        const t = s / 600;
+        const r = minR + Math.pow(t, 0.85) * (maxR - minR);
+        const theta = baseAngle + Math.log(r / minR) * 1.85;
+
+        const px = cx + r * Math.cos(theta);
+        const py = cy + r * Math.sin(theta);
+
+        // 旋臂主要藍色/紫色恆星雲
+        const armColor = t < 0.3 ? 'rgba(215, 180, 255, 0.25)' : (t < 0.7 ? 'rgba(100, 190, 255, 0.22)' : 'rgba(56, 189, 248, 0.18)');
+        const spotRadius = Math.random() * 32 + 18;
+
+        const g = ctx.createRadialGradient(px, py, 0, px, py, spotRadius);
+        g.addColorStop(0, armColor);
+        g.addColorStop(0.6, 'rgba(147, 197, 253, 0.08)');
+        g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(px, py, spotRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 3. 粉紅/洋紅色 HII 電離星雲群 (HII Star-forming Regions)
+        if (Math.random() < 0.22) {
+          const hiiR = Math.random() * 12 + 6;
+          const hg = ctx.createRadialGradient(px + (Math.random() - 0.5) * 15, py + (Math.random() - 0.5) * 15, 0, px, py, hiiR);
+          hg.addColorStop(0, 'rgba(244, 63, 94, 0.6)');
+          hg.addColorStop(0.5, 'rgba(236, 72, 153, 0.3)');
+          hg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = hg;
+          ctx.beginPath();
+          ctx.arc(px, py, hiiR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // 4. 深色星際塵埃裂縫 (Dark Dust Lanes / Great Rift)
+    for (let a = 0; a < arms; a++) {
+      const baseAngle = (a * Math.PI * 2) / arms + 0.18;
+      ctx.strokeStyle = 'rgba(8, 6, 15, 0.45)';
+      ctx.lineWidth = 12;
+      ctx.beginPath();
+      for (let s = 0; s < 250; s++) {
+        const t = s / 250;
+        const r = minR * 1.2 + Math.pow(t, 0.9) * (maxR * 0.85 - minR);
+        const theta = baseAngle + Math.log(r / minR) * 1.82;
+        const px = cx + r * Math.cos(theta);
+        const py = cy + r * Math.sin(theta);
+        if (s === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
 }

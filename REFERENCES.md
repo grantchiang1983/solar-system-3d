@@ -1,6 +1,6 @@
 ﻿# 📚 3D 太陽系、銀河系與黑洞天文模擬系統 — 參考資料與文獻庫 (Astrophysical References & Documentation)
 
-本專案之天體物理常數、軌道動力學方程式、天體測量數據與 3D 視覺著色模型，均嚴格參照各國航太總署（NASA、ESA）、國際天文學聯會（IAU）與頂尖天文學術文獻。
+本專案之天體物理常數、軌道動力學方程式、天體測量數據、廣義相對論黑洞光學模型與 3D 視覺著色模型，均嚴格參照各國航太總署（NASA、ESA）、國際天文學聯會（IAU）與頂尖天文學術文獻。
 
 ---
 
@@ -26,7 +26,7 @@
 
 ---
 
-## 2. 🕳️ 已知黑洞與天體測量學依據 (Black Hole Astrometry)
+## 2. 🕳️ 已知黑洞、廣義相對論重力透鏡與噴流 (General Relativistic Black Holes)
 
 ### 🔥 1. 蓋亞 BH1 (Gaia BH1) — 目前已知距離太陽系最近的黑洞
 - **發現任務**：歐洲太空總署 ESA Gaia 太空望遠鏡（Data Release 3, 2022）
@@ -37,7 +37,8 @@
   - **天區**：蛇夫座（Ophiuchus），\(\text{RA } 17^\text{h} 28^\text{m} 41^\text{s}, \text{Dec } -00^\circ 34' 51''\)
   - **黑洞質量**：\(9.62 \pm 0.18\ M_\odot\)
   - **史瓦西半徑**：\(r_s = \frac{2GM}{c^2} \approx 28.4\text{ km}\)
-  - **伴星系統**：一顆質量為 \(0.93\ M_\odot\) 的 G 型黃矮星（光譜型 G 型主序星，極其類似太陽），互繞公轉週期為 \(185.59\text{ 天}\)。
+  - **伴星系統**：一顆質量為 \(0.93\ M_\odot\) 的 G 型黃矮星，互繞公轉週期為 \(185.59\text{ 天}\)。
+  - **洛希瓣物質轉移**：伴星大氣受黑洞潮汐引力拉扯形成物質吸積流。
 
 ### 2. 蓋亞 BH3 (Gaia BH3) — 銀河系已知最大恆星級黑洞
 - **發現任務**：ESA Gaia 太空望遠鏡（2024 年 4 月）
@@ -46,79 +47,51 @@
 - **天體測量參數**：
   - **距離**：\(1,926\text{ 光年}\)（\(590\text{ pc}\)）
   - **天區**：天鷹座（Aquila）
-  - **黑洞質量**：\(32.7 \pm 0.8\ M_\odot\)（突破過去銀河系恆星黑洞 <20 M☉ 的認知上限）
+  - **黑洞質量**：\(32.7 \pm 0.8\ M_\odot\)
   - **史瓦西半徑**：\(r_s \approx 97.4\text{ km}\)
 
 ### 3. 人馬座 A* (Sagittarius A*) — 銀河系中心超大質量黑洞
-- **發現與觀測**：
-  - 2020 年諾貝爾物理學獎（Reinhard Genzel & Andrea Ghez）
-  - 2022 年事件視界望遠鏡（Event Horizon Telescope, EHT）全球甚長基線干涉陣列（VLBI）首次直接成像
 - **關鍵論文**：
   - *The Event Horizon Telescope Collaboration (2022). "First Sagittarius A* Event Horizon Telescope Results." The Astrophysical Journal Letters, 930(2), L12.*
 - **天體物理參數**：
   - **距離**：\(26,670 \pm 60\text{ 光年}\)（\(8,178\text{ pc}\)）
   - **質量**：\((4.154 \pm 0.014) \times 10^6\ M_\odot\)（約 415 萬倍太陽質量）
-  - **史瓦西半徑**：\(r_s \approx 1.225 \times 10^7\text{ km}\)（約 \(0.082\text{ AU}\)，約 17.7 倍太陽半徑）
+  - **史瓦西半徑**：\(r_s \approx 1.225 \times 10^7\text{ km}\)（約 \(0.082\text{ AU}\)）
+
+### 4. 廣義相對論光學模型 (Kip Thorne Relativistic Optics)
+- *James, O., Tunzelmann, E. von, Franklin, P., & Thorne, K. S. (2015). "Gravitational lensing by spinning black holes in astrophysics, and in the movie Interstellar." Classical and Quantum Gravity, 32(6), 065001.*
+- **幾何效應**：
+  - **光子球 (Photon Sphere)**：\(r_\text{ph} = 1.5 r_s\)
+  - **最內側穩定圓軌道 (ISCO)**：\(r_\text{ISCO} = 3.0 r_s\)
+  - **重力透鏡垂直光環 (Einstein Ring Halo)**：後方盤面光線受強重力場向上、向下雙向折射形成的雙曲面愛因斯坦光弧。
+  - **相對論都卜勒增亮 (Doppler Beaming)**：迎面旋轉電漿朝向觀察者呈現強烈藍移與能量增益。
 
 ---
 
 ## 3. 🌌 銀河系宏觀結構物理模型 (Milky Way Galactic Structure)
 
-- **文獻依據**：
-  - *Bland-Hawthorn, J., & Gerhard, O. (2016). "The Galaxy in Context: Structural, Kinematic, and Integrated Properties." Annual Review of Astronomy and Astrophysics, 54, 529-596.*
-- **銀河系幾何結構**：
-  - **銀盤直徑**：約 \(100,000\text{ 光年}\)（\(30\text{ kpc}\)）
-  - **銀盤厚度**：薄盤約 \(1,000\text{ 光年}\)；核球厚度約 \(10,000\text{ 光年}\)
-  - **太陽系銀心距**：\(R_0 \approx 8.2\text{ kpc}\)（約 26,670 光年）
-  - **太陽繞銀心速度**：\(v_\text{circ} \approx 220\text{ km/s}\)
-  - **銀河年 (Galactic Year)**：約 \(2.3 \times 10^8\text{ 年}\)（2.3 億年）
-  - **旋臂幾何**：四條主要對數螺旋臂（Logarithmic Spiral Arms: 英仙臂 Perseus、獵戶座次臂 Orion、人馬臂 Sagittarius、盾牌-半人馬臂 Scutum-Centaurus）。
+- **文獻依據**：*Bland-Hawthorn, J., & Gerhard, O. (2016). ARA&A, 54, 529-596.*
+- **銀河系參數**：
+  - 直徑約 100,000 光年，薄盤厚約 1,000 光年。
+  - 太陽系銀心距約 2.6 萬光年，以 220 km/s 公轉，銀河年約 2.3 億年。
+  - 四大對數螺旋臂：英仙臂 (Perseus)、獵戶座次臂 (Orion)、人馬臂 (Sagittarius)、盾牌-半人馬臂 (Scutum-Centaurus)。
 
 ---
 
-## 4. 🧮 天文數學公式與物理演算法 (Mathematical & Physical Formulas)
-
-### 1. 克卜勒軌道半徑方程 (Keplerian Orbit)
-\[
-r(\theta) = \frac{a (1 - e^2)}{1 + e \cos(\theta - \omega)}
-\]
-- \(a\)：半長軸 (Semi-major axis)
-- \(e\)：軌道離心率 (Eccentricity)
-- \(\theta\)：真近點角 (True Anomaly)
-- \(\omega\)：近日點幅角 (Argument of Periapsis)
-
-### 2. 活力公式 (Vis-viva Equation — 瞬時公轉速度)
-\[
-v = \sqrt{G M_\odot \left( \frac{2}{r} - \frac{1}{a} \right)}
-\]
-- 近日點速度：\(v_\text{peri} = \sqrt{\frac{G M_\odot}{a} \frac{1 + e}{1 - e}}\)
-- 遠日點速度：\(v_\text{aph} = \sqrt{\frac{G M_\odot}{a} \frac{1 - e}{1 + e}}\)
-
-### 3. 日心黃道座標與方位角 (Heliocentric Azimuth)
-\[
-\theta_\text{azimuth} = \text{atan2}(z, x) \pmod{360^\circ}
-\]
-以春分點方向為 \(0^\circ\)，逆時針（公轉方向）從 \(0^\circ\) 到 \(360^\circ\)。
-
-### 4. 史瓦西半徑 (Schwarzschild Radius — 事件視界)
-\[
-r_s = \frac{2 G M}{c^2} \approx 2.95 \times \left( \frac{M}{M_\odot} \right) \text{ km}
-\]
-
----
-
-## 5. 🎨 視覺貼圖、著色器與圖庫來源 (Visual Textures & Shaders)
+## 4. 🎨 視覺貼圖、著色器與圖庫來源 (Visual Textures & Shaders)
 
 1. **NASA Scientific Visualization Studio (SVS)**:
-   - [NASA Blue Marble: Next Generation](https://visibleearth.nasa.gov/collection/1484/blue-marble) — 地球 2K 全球地表紋理、地形法線與夜間燈光。
-   - [NASA CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) — 月球表面高精度凹凸貼圖與高程數據。
+   - [NASA Blue Marble & Black Marble (City Lights)](https://visibleearth.nasa.gov/collection/1484/blue-marble) — 地球 2K 全球日照、夜間城市燈火、高程法線與雲層。
+   - [NASA CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) — 月表凹凸貼圖。
 2. **Solar System Scope (CC BY 4.0)**:
-   - [Solar System Scope Textures Library](https://www.solarsystemscope.com/textures/) — 太陽、水星、金星、火星、木星、土星及光環、天王星、海王星高解析等角柱投影圖（Equirectangular Maps）。
-3. **自定義大氣瑞利散射著色器 (Rayleigh Scattering Shader)**:
-   - 基於頂點法線與視線夾角點積 \(\text{pow}(0.65 - \mathbf{N} \cdot \mathbf{V}, 2.2)\)，透過 GLSL 實時計算天體大氣層邊緣散射光暈。
+   - [Solar System Scope Textures](https://www.solarsystemscope.com/textures/) — 太陽、水星、金星、火星、木星、土星、天王星、海王星等角柱投影圖。
+3. **GLSL 自定義物理著色器**:
+   - 地球晝夜動態混合與夜面城市燈火著色器（GLSL Custom Day/Night & Specular Ocean Glint）。
+   - 瑞利散射大氣薄層光暈著色器（Rayleigh Atmospheric Limb Shader）。
+   - 太陽日珥耀斑環與黑洞雙曲面重力透鏡吸積盤。
 
 ---
 
-## 📄 專案版權與維護
+## 📄 專案版權
 - **開發者**：Grant Chiang ([@grantchiang1983](https://github.com/grantchiang1983))
 - **開源許可證**：[MIT License](LICENSE)

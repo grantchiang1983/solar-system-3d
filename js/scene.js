@@ -880,20 +880,43 @@ class SolarScene {
     const galaxyPoints = new THREE.Points(geo, mat);
     this.milkyWayGroup.add(galaxyPoints);
 
-    // 2. 2K 超高解析度銀河系棒旋星盤 (Continuous 2K Barred Spiral Galactic Disc)
-    const mwDiskTex = TextureGenerator.createMilkyWayDiskTexture(2048);
-    const mwDiskGeo = new THREE.PlaneGeometry(galaxyRadius * 2.15, galaxyRadius * 2.15);
+    // 2. 4K 超高解析度銀河系棒旋星盤 (Continuous 4K Barred Spiral Galactic Disc)
+    const mwDiskTex = TextureGenerator.createMilkyWayDiskTexture(4096);
+    const mwDiskGeo = new THREE.PlaneGeometry(galaxyRadius * 2.2, galaxyRadius * 2.2);
+    
+    // 主盤面 (Primary Disc)
     const mwDiskMat = new THREE.MeshBasicMaterial({
       map: mwDiskTex,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.82,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const mwDiskMesh = new THREE.Mesh(mwDiskGeo, mwDiskMat);
     mwDiskMesh.rotation.x = -Math.PI / 2;
     this.milkyWayGroup.add(mwDiskMesh);
+
+    // 上下雙層立體星際雲氣 (Volumetric Upper/Lower Gaseous Halo Discs)
+    const upperHaloMat = new THREE.MeshBasicMaterial({
+      map: mwDiskTex,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const upperHaloMesh = new THREE.Mesh(mwDiskGeo, upperHaloMat);
+    upperHaloMesh.rotation.x = -Math.PI / 2;
+    upperHaloMesh.position.y = 12;
+    upperHaloMesh.scale.set(1.02, 1.02, 1.02);
+    this.milkyWayGroup.add(upperHaloMesh);
+
+    const lowerHaloMesh = new THREE.Mesh(mwDiskGeo, upperHaloMat);
+    lowerHaloMesh.rotation.x = -Math.PI / 2;
+    lowerHaloMesh.position.y = -12;
+    lowerHaloMesh.scale.set(1.02, 1.02, 1.02);
+    this.milkyWayGroup.add(lowerHaloMesh);
 
     // 3. 銀心超亮核球 (Galactic Bulge)
     const bulgeGeo = new THREE.SphereGeometry(95, 32, 32);

@@ -1,0 +1,244 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌌 銀河系 3D 深度探索平台 (Milky Way 3D Galaxy Explorer)</title>
+  <meta name="description" content="3D 棒旋銀河系高精度天文探索平台：五大螺旋臂、人馬座 A* 超大質量黑洞、費米氣泡、恆星育嬰室與多波段天文觀測。">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            space: '#02040a',
+            cosmic: '#0b0f19',
+            neonCyan: '#00f2fe',
+            neonPink: '#ec4899',
+            neonPurple: '#a855f7'
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #02040a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      user-select: none;
+    }
+    #galaxy-canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .glass-panel {
+      background: rgba(11, 15, 25, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.22);
+    }
+    .wl-btn.active {
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.45), rgba(168, 85, 247, 0.45));
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+    }
+    /* 自訂滾動條 */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #0284c7;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="text-slate-100 flex flex-col h-screen">
+
+  <!-- 3D 渲染畫布容器 -->
+  <div id="galaxy-canvas-container"></div>
+
+  <!-- 頂部導航列 (Top Navigation Header) -->
+  <header class="relative z-10 w-full px-4 py-2.5 flex items-center justify-between glass-panel border-b border-sky-500/20">
+    <div class="flex items-center space-x-3">
+      <a href="index.html" class="px-3 py-1.5 rounded-lg bg-sky-950/80 hover:bg-sky-800 text-sky-300 hover:text-white text-xs md:text-sm font-medium border border-sky-500/40 transition flex items-center gap-1.5 shadow-lg">
+        ☀️ 返回太陽系 3D
+      </a>
+      <div class="h-5 w-px bg-slate-700 hidden sm:block"></div>
+      <h1 class="text-base md:text-xl font-extrabold bg-gradient-to-r from-sky-400 via-cyan-300 to-purple-400 bg-clip-text text-transparent flex items-center gap-2">
+        <span>🌌</span> 銀河系 3D 深度探索平台
+      </h1>
+      <span class="text-[10px] md:text-xs px-2 py-0.5 rounded-full bg-purple-950/80 text-purple-300 border border-purple-500/40 hidden lg:inline">
+        SBbc 棒旋星系 · 直徑 10 萬光年
+      </span>
+    </div>
+
+    <!-- 多波段觀測光譜選擇器 -->
+    <div class="flex items-center space-x-1.5 overflow-x-auto py-1">
+      <span class="text-xs text-slate-400 mr-1 hidden xl:inline">觀測波段：</span>
+      <button class="wl-btn active px-2.5 py-1 text-xs rounded-md bg-slate-900/80 border border-slate-700 hover:border-sky-400 transition" data-wl="visible">
+        👁️ 可見光
+      </button>
+      <button class="wl-btn px-2.5 py-1 text-xs rounded-md bg-slate-900/80 border border-slate-700 hover:border-sky-400 transition" data-wl="infrared">
+        🔴 紅外線 (JWST)
+      </button>
+      <button class="wl-btn px-2.5 py-1 text-xs rounded-md bg-slate-900/80 border border-slate-700 hover:border-sky-400 transition" data-wl="radio_21cm">
+        📻 21cm 電波
+      </button>
+      <button class="wl-btn px-2.5 py-1 text-xs rounded-md bg-slate-900/80 border border-slate-700 hover:border-sky-400 transition" data-wl="fermi_gamma">
+        🟣 費米伽瑪射線
+      </button>
+    </div>
+  </header>
+
+  <!-- 次頂部快捷導覽導航列 (Quick Tours Bar) -->
+  <div class="relative z-10 w-full px-4 py-2 flex items-center space-x-2 overflow-x-auto bg-slate-950/60 backdrop-blur-md border-b border-slate-800 text-xs">
+    <span class="text-sky-400 font-semibold flex items-center gap-1 shrink-0">
+      🚀 快捷導覽：
+    </span>
+    <button class="tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-slate-200 shrink-0 transition" data-target="reset">
+      🌌 全景鳥瞰
+    </button>
+    <button class="tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-cyan-300 shrink-0 transition" data-target="sol">
+      ☀️ 太陽系家園
+    </button>
+    <button class="tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-pink-400 shrink-0 transition" data-target="sgr_a_star">
+      ⚫ 人馬座 A* 黑洞
+    </button>
+    <button class="tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-rose-300 shrink-0 transition" data-target="m42_orion">
+      🌸 獵戶座大星雲
+    </button>
+    <button class="tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-rose-400 shrink-0 transition" data-target="ngc3372_carina">
+      🌺 船底座大星雲
+    </button>
+    <button class="tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-orange-400 shrink-0 transition" data-target="m16_eagle">
+      🦅 創世之柱 (M16)
+    </button>
+    <button class="tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-purple-300 shrink-0 transition" data-target="fermi_bubbles">
+      🟣 費米氣泡
+    </button>
+    <button class="tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-yellow-300 shrink-0 transition" data-target="omega_centauri">
+      ✨ 半人馬 ω 星團
+    </button>
+    <button class="tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-slate-300 shrink-0 transition" data-target="edge_on">
+      🪐 側向銀盤厚度
+    </button>
+  </div>
+
+  <!-- 左側控制面板 (Left Control Sidebar) -->
+  <aside class="absolute left-4 top-24 z-10 w-72 max-h-[calc(100vh-120px)] overflow-y-auto glass-panel rounded-xl p-4 shadow-2xl space-y-4 hidden md:block">
+    <!-- 搜尋欄 -->
+    <div class="relative">
+      <label class="text-[11px] font-bold text-sky-400 uppercase tracking-wider block mb-1">🔍 搜尋銀河系天體</label>
+      <input type="text" id="galaxy-search-input" placeholder="例如：太陽系、人馬座 A*、M42、M16..." class="w-full px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-700 focus:border-sky-400 text-xs text-white placeholder-slate-500 focus:outline-none transition">
+      <div id="search-results" class="absolute left-0 right-0 top-14 bg-slate-900/95 border border-sky-500/40 rounded-lg shadow-2xl z-20 hidden max-h-48 overflow-y-auto"></div>
+    </div>
+
+    <!-- 當前波段資訊卡片 -->
+    <div id="wavelength-info" class="p-3 rounded-lg bg-sky-950/40 border border-sky-500/30">
+      <div class="font-bold text-sky-400 mb-1 text-xs">👁️ 可見光 (380 ~ 750 nm)</div>
+      <div class="text-[11px] text-slate-300 mb-1"><strong>代表性望遠鏡：</strong>哈伯 (HST)、甚大望遠鏡 (VLT)、蓋亞 (Gaia)</div>
+      <div class="text-[11px] text-slate-400">展現由高溫恆星群勾勒出的明亮旋臂，以及顯著的星際大裂谷暗塵埃帶吸光現象。</div>
+    </div>
+
+    <!-- 圖層顯示控制 -->
+    <div>
+      <h3 class="text-[11px] font-bold text-sky-400 uppercase tracking-wider mb-2">🗺️ 3D 星系圖層開關</h3>
+      <div class="grid grid-cols-2 gap-2 text-xs text-slate-300">
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="disc" checked class="layer-checkbox rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+          <span>4K 棒旋盤面</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="stars" checked class="layer-checkbox rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+          <span>旋臂恆星群</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="dust" checked class="layer-checkbox rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+          <span>暗分子塵埃帶</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="nebulae" checked class="layer-checkbox rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+          <span>發射星雲 (HII)</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="clusters" checked class="layer-checkbox rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+          <span>球狀星團暈</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="fermiBubbles" checked class="layer-checkbox rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+          <span>費米氣泡</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="grid" checked class="layer-checkbox rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+          <span>銀道座標網格</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="labels" checked class="layer-checkbox rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+          <span>天體標籤標記</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 動畫與自轉速度控制 -->
+    <div class="pt-2 border-t border-slate-800 space-y-2">
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-slate-400">銀河系公轉速度：</span>
+        <button id="pause-rotation-btn" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">
+          ⏸️ 暫停旋轉
+        </button>
+      </div>
+      <input type="range" id="rotation-speed-slider" min="0" max="0.003" step="0.0002" value="0.0006" class="w-full accent-sky-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+    </div>
+  </aside>
+
+  <!-- 右下角天體詳情檢查器 (Floating Inspector Modal) -->
+  <div id="inspector-modal" class="absolute right-4 bottom-6 z-20 w-80 md:w-96 glass-panel rounded-xl p-4 shadow-2xl hidden border border-sky-500/40">
+    <div class="flex items-start justify-between border-b border-slate-700/60 pb-2 mb-3">
+      <h3 id="inspector-title" class="text-base font-bold text-sky-300 flex items-center gap-2">
+        ☀️ 太陽系
+      </h3>
+      <button id="close-inspector-btn" class="text-slate-400 hover:text-white text-lg leading-none">&times;</button>
+    </div>
+    <div class="space-y-2 text-xs">
+      <div class="flex justify-between py-1 border-b border-slate-800/60">
+        <span class="text-slate-400">距離太陽：</span>
+        <span id="inspector-dist-sun" class="text-slate-200 font-medium">0 光年</span>
+      </div>
+      <div class="flex justify-between py-1 border-b border-slate-800/60">
+        <span class="text-slate-400">距離銀心：</span>
+        <span id="inspector-dist-gc" class="text-slate-200 font-medium">約 26,000 光年</span>
+      </div>
+      <div class="flex justify-between py-1 border-b border-slate-800/60">
+        <span class="text-slate-400">所屬構造：</span>
+        <span id="inspector-arm" class="text-cyan-300 font-medium">獵戶座次臂</span>
+      </div>
+      <div class="pt-2 text-slate-300 leading-relaxed" id="inspector-desc">
+        我們微小而溫暖的宇宙家園，圍繞銀河系中心以 230 km/s 的速度公轉。
+      </div>
+    </div>
+  </div>
+
+  <!-- 應用主腳本鏈結 -->
+  <script src="js/textures.js?v=20260827_2235"></script>
+  <script src="js/galaxy-data.js?v=20260827_2235"></script>
+  <script src="js/galaxy-app.js?v=20260827_2235"></script>
+</body>
+</html>

@@ -418,7 +418,8 @@ const COMETS_DATA = [
     nextPerihelionYear: '2061 年 7 月 28 日',
     lastPerihelionYear: '1986 年 2 月 9 日',
     visualScale: 1.1,
-    orbitVisualA: 118,             // 視覺軌道半長軸
+    orbitVisualA: 132.0,           // 視覺軌道半長軸
+    visualEccentricity: 0.745,     // 視覺離心率 (近日點 = 33.7 位於水星與金星之間，遠離太陽球體)
     orbitColor: '#10b981',         // 綠寶石翡翠彗髮
     comaColor: '#34d399',
     ionTailColor: '#38bdf8',       // 藍色離子尾
@@ -435,7 +436,7 @@ const COMETS_DATA = [
     semiMajorAxisAU: 186.0,
     eccentricity: 0.995086,
     inclinationDeg: 89.43,         // 垂直黃道面俯衝軌道
-    perihelionAU: 0.914,           // 近日點 (接近地球軌道)
+    perihelionAU: 0.914,           // 近日點 (接近地球軌道 0.914 AU)
     aphelionAU: 370.8,             // 遠日點 (奧爾特雲內緣)
     ascendingNodeDeg: 282.47,
     argumentOfPeriapsisDeg: 130.59,
@@ -443,7 +444,8 @@ const COMETS_DATA = [
     nextPerihelionYear: '約 4385 年',
     lastPerihelionYear: '1997 年 4 月 1 日',
     visualScale: 1.4,
-    orbitVisualA: 155,             // 視覺軌道半長軸
+    orbitVisualA: 166.5,           // 視覺軌道半長軸
+    visualEccentricity: 0.682,     // 視覺離心率 (近日點 = 53.0 緊鄰地球公轉軌道 58.0，絕不撞入太陽)
     orbitColor: '#f59e0b',         // 金黃大彗星
     comaColor: '#fbbf24',
     ionTailColor: '#2563eb',       // 深邃電藍離子尾

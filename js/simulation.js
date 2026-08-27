@@ -225,11 +225,11 @@ class SolarSimulation {
   }
 
   /**
-   * 統一計算彗星在 3D 空間中的精確克卜勒軌道位置 (保證彗星與軌道虛線 100% 絕對重合)
+   * 統一計算彗星在 3D 空間中的精確克卜勒軌道位置 (保證彗星與軌道虛線 100% 絕對重合且近日點絕不撞入太陽)
    */
   static getComet3DCoords(comet, theta) {
     const visualA = comet.orbitVisualA;
-    const effectiveE = Math.min(comet.eccentricity, 0.94); // 限制視覺離心率避免遠日點無限發散
+    const effectiveE = comet.visualEccentricity || Math.min(comet.eccentricity, 0.7);
     const r = (visualA * (1 - effectiveE * effectiveE)) / (1 + effectiveE * Math.cos(theta));
 
     const incRad = (comet.inclinationDeg * Math.PI) / 180;

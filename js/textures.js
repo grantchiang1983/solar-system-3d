@@ -827,56 +827,7 @@ class TextureGenerator {
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.ClampToEdgeWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
-    return tex;
-  }
-
-  /**
-   * 相對論極向噴流高能電漿光束材質 (Relativistic Polar Jet Texture)
-   */
-  static createRelativisticJetTexture(colorHex = '#a855f7') {
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-
-    const grad = ctx.createLinearGradient(0, 0, 0, 512);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.15, colorHex);
-    grad.addColorStop(0.6, 'rgba(168, 85, 247, 0.4)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 128, 512);
-
-    const tex = new THREE.CanvasTexture(canvas);
-    return tex;
-  }
-
-  /**
-   * 建立極致柔和的高斯光暈圓形星點貼圖 (Star Flare Sprite Texture)
-   * 徹底杜絕 WebGL 點精靈在無貼圖時預設繪製的正方形白方塊 (Square Point Artifacts)
-   */
-  static createStarSpriteTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    const cx = 64;
-    const cy = 64;
-
-    // 徑向多層高斯柔和漸層
-    const radGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 64);
-    radGrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
-    radGrad.addColorStop(0.12, 'rgba(255, 255, 255, 0.95)');
-    radGrad.addColorStop(0.28, 'rgba(215, 235, 255, 0.6)');
-    radGrad.addColorStop(0.55, 'rgba(160, 195, 255, 0.2)');
-    radGrad.addColorStop(0.85, 'rgba(120, 160, 255, 0.05)');
-    radGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-
-    ctx.fillStyle = radGrad;
-    ctx.fillRect(0, 0, 128, 128);
-
-    // 4 向微細天文星芒繞射尖角 (Diffraction Spikes)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    r    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.lineWidth = 1.0;
     ctx.beginPath();
     ctx.moveTo(cx - 48, cy); ctx.lineTo(cx + 48, cy);
@@ -924,9 +875,9 @@ class TextureGenerator {
     const cy = 64;
 
     const radGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 64);
-    radGrad.addColorStop(0.0, 'rgba(255, 120, 160, 0.90)');
-    radGrad.addColorStop(0.25, 'rgba(244, 63, 94, 0.60)');
-    radGrad.addColorStop(0.60, 'rgba(219, 39, 119, 0.25)');
+    radGrad.addColorStop(0.0, 'rgba(255, 110, 150, 0.65)');
+    radGrad.addColorStop(0.25, 'rgba(244, 63, 94, 0.40)');
+    radGrad.addColorStop(0.60, 'rgba(219, 39, 119, 0.15)');
     radGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
 
     ctx.fillStyle = radGrad;
@@ -938,8 +889,7 @@ class TextureGenerator {
 
   /**
    * 建立 4K 超擬真棒旋星系盤面紋理 (Photorealistic Barred Spiral Galaxy, 4096x4096)
-   * 7 層渲染流程：核球 → 棒狀結構 → 分子環 → 4+1 螺旋臂 → 塵埃暗帶 → HII 星雲 → 恆星微晶
-   * 每條旋臂使用可微分對數螺線 r = a·e^(b·θ) 並疊加碎形擾動模擬真實懸臂分叉與羽狀支臂
+   * 柔和低飽和度高動態範圍，完美杜絕過度亮爆
    */
   static createMilkyWayDiskTexture(size = 4096) {
     const canvas = document.createElement('canvas');
@@ -953,57 +903,43 @@ class TextureGenerator {
     ctx.clearRect(0, 0, size, size);
 
     // ═══════════════════════════════════════════════════════════
-    // 第 1 層：銀心核球 (Galactic Bulge & Nuclear Core)
-    // 多重高斯漸層疊加，模擬老年恆星群的集中金白核心
+    // 第 1 層：銀心核球 (Galactic Bulge) — 柔和自然金黃輝光
     // ═══════════════════════════════════════════════════════════
-    const bulgeR = size * 0.22;
-    for (let layer = 0; layer < 4; layer++) {
-      const layerR = bulgeR * (1.0 - layer * 0.15);
-      const layerOp = [1.0, 0.7, 0.4, 0.2][layer];
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, layerR);
-      g.addColorStop(0.0, `rgba(255, 255, 248, ${layerOp})`);
-      g.addColorStop(0.1, `rgba(255, 245, 210, ${layerOp * 0.92})`);
-      g.addColorStop(0.3, `rgba(255, 220, 150, ${layerOp * 0.65})`);
-      g.addColorStop(0.55, `rgba(200, 150, 80, ${layerOp * 0.30})`);
-      g.addColorStop(0.8, `rgba(120, 80, 40, ${layerOp * 0.10})`);
-      g.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, size, size);
-    }
+    const bulgeR = size * 0.20;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, bulgeR);
+    g.addColorStop(0.0, 'rgba(255, 245, 215, 0.50)');
+    g.addColorStop(0.15, 'rgba(255, 230, 160, 0.35)');
+    g.addColorStop(0.40, 'rgba(215, 160, 80, 0.18)');
+    g.addColorStop(0.70, 'rgba(130, 80, 35, 0.05)');
+    g.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
 
     // ═══════════════════════════════════════════════════════════
-    // 第 2 層：中心棒狀結構 (Central Stellar Bar)
-    // 銀河系是 SBbc 型棒旋星系，棒長約 3.2 kpc，傾角 ~44°
+    // 第 2 層：中心棒狀結構 (Central Stellar Bar, 傾角 44°)
     // ═══════════════════════════════════════════════════════════
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(Math.PI / 4.1);
-    for (let bl = 0; bl < 3; bl++) {
-      const barLen = size * (0.19 - bl * 0.03);
-      const barOp = [0.88, 0.50, 0.25][bl];
-      const bg = ctx.createRadialGradient(0, 0, 0, 0, 0, barLen);
-      bg.addColorStop(0.0, `rgba(255, 248, 225, ${barOp})`);
-      bg.addColorStop(0.4, `rgba(255, 215, 145, ${barOp * 0.65})`);
-      bg.addColorStop(0.75, `rgba(200, 155, 90, ${barOp * 0.28})`);
-      bg.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = bg;
-      ctx.save();
-      ctx.scale(2.8 - bl * 0.3, 0.65 + bl * 0.08);
-      ctx.beginPath();
-      ctx.arc(0, 0, barLen, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
+    const barLen = size * 0.17;
+    const bg = ctx.createRadialGradient(0, 0, 0, 0, 0, barLen);
+    bg.addColorStop(0.0, 'rgba(255, 235, 180, 0.35)');
+    bg.addColorStop(0.45, 'rgba(230, 175, 100, 0.18)');
+    bg.addColorStop(0.80, 'rgba(160, 105, 50, 0.05)');
+    bg.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = bg;
+    ctx.scale(2.5, 0.70);
+    ctx.beginPath();
+    ctx.arc(0, 0, barLen, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
 
     // ═══════════════════════════════════════════════════════════
     // 第 3 層：5 kpc 分子氣體環 (Molecular Ring)
     // ═══════════════════════════════════════════════════════════
     const molG = ctx.createRadialGradient(cx, cy, size * 0.09, cx, cy, size * 0.17);
-    molG.addColorStop(0.0, 'rgba(200, 220, 255, 0)');
-    molG.addColorStop(0.3, 'rgba(180, 210, 255, 0.22)');
-    molG.addColorStop(0.55, 'rgba(140, 190, 255, 0.32)');
-    molG.addColorStop(0.75, 'rgba(100, 160, 240, 0.18)');
+    molG.addColorStop(0.0, 'rgba(160, 190, 240, 0)');
+    molG.addColorStop(0.5, 'rgba(130, 175, 240, 0.12)');
     molG.addColorStop(1.0, 'rgba(60, 100, 200, 0)');
     ctx.fillStyle = molG;
     ctx.beginPath();
@@ -1011,68 +947,63 @@ class TextureGenerator {
     ctx.fill();
 
     // ═══════════════════════════════════════════════════════════
-    // 第 4 層：4 條主要對數螺旋臂 + 獵戶座次臂
-    // 使用碎形噪聲 (Fractal Perturbation) 模擬懸臂內部湍流結構
+    // 第 4 層：4 條主要對數螺旋臂 + 獵戶座次臂 (柔和自然星雲流)
     // ═══════════════════════════════════════════════════════════
     const armDefs = [
-      { name: 'Scutum-Centaurus', offset: 0,                   pitch: 1.78, width: 1.0,  hue: [255,230,200] },
-      { name: 'Perseus',          offset: Math.PI / 2,          pitch: 1.82, width: 0.95, hue: [200,225,255] },
-      { name: 'Sagittarius',      offset: Math.PI,              pitch: 1.76, width: 0.88, hue: [220,235,255] },
-      { name: 'Norma-Outer',      offset: Math.PI * 1.5,        pitch: 1.84, width: 0.80, hue: [190,215,245] },
-      { name: 'Orion Spur',       offset: Math.PI * 0.84,       pitch: 1.55, width: 0.55, hue: [230,245,255] }
+      { name: 'Scutum-Centaurus', offset: 0,                   pitch: 1.78, width: 1.0,  hue: [235,210,175] },
+      { name: 'Perseus',          offset: Math.PI / 2,          pitch: 1.82, width: 0.95, hue: [175,205,245] },
+      { name: 'Sagittarius',      offset: Math.PI,              pitch: 1.76, width: 0.88, hue: [195,215,245] },
+      { name: 'Norma-Outer',      offset: Math.PI * 1.5,        pitch: 1.84, width: 0.80, hue: [165,195,235] },
+      { name: 'Orion Spur',       offset: Math.PI * 0.84,       pitch: 1.55, width: 0.55, hue: [205,225,245] }
     ];
 
     const maxR = size * 0.465;
     const minR = size * 0.075;
 
-    // 4a. 底層瀰漫氣體暈 (Diffuse Arm Glow)
+    // 4a. 底層瀰漫氣體暈 (Diffuse Arm Glow - 柔和半透明)
     armDefs.forEach(arm => {
-      const sampleCount = arm.name === 'Orion Spur' ? 600 : 1400;
+      const sampleCount = arm.name === 'Orion Spur' ? 400 : 900;
       for (let s = 0; s < sampleCount; s++) {
         const t = s / sampleCount;
         const r = minR + Math.pow(t, 0.85) * (maxR * arm.width - minR);
-        // 碎形擾動：3 層不同頻率正弦疊加
         const p1 = Math.sin(s * 0.08) * 22 * (1 - t) * S;
-        const p2 = Math.sin(s * 0.23 + 1.7) * 11 * (1 - t * 0.5) * S;
-        const p3 = Math.sin(s * 0.51 + 3.2) * 5 * S;
-        const perturb = p1 + p2 + p3;
+        const p2 = Math.sin(s * 0.23 + 1.7) * 11 * S;
+        const perturb = p1 + p2;
         const theta = arm.offset + Math.log(Math.max(r, 1) / Math.max(minR, 1)) * arm.pitch + perturb / (r + 1);
         const px = cx + (r + perturb * 0.5) * Math.cos(theta);
         const py = cy + (r + perturb * 0.5) * Math.sin(theta);
 
-        const spotR = (Math.random() * 50 + 35) * S;
-        const op = t < 0.3 ? 0.16 : 0.11;
-        const g = ctx.createRadialGradient(px, py, 0, px, py, spotR);
-        g.addColorStop(0.0, `rgba(${arm.hue[0]},${arm.hue[1]},${arm.hue[2]},${op})`);
-        g.addColorStop(0.55, `rgba(${arm.hue[0]},${arm.hue[1]},${arm.hue[2]},${op * 0.35})`);
-        g.addColorStop(1.0, 'rgba(0,0,0,0)');
-        ctx.fillStyle = g;
+        const spotR = (Math.random() * 45 + 30) * S;
+        const op = t < 0.3 ? 0.07 : 0.04;
+        const ag = ctx.createRadialGradient(px, py, 0, px, py, spotR);
+        ag.addColorStop(0.0, `rgba(${arm.hue[0]},${arm.hue[1]},${arm.hue[2]},${op})`);
+        ag.addColorStop(0.6, `rgba(${arm.hue[0]},${arm.hue[1]},${arm.hue[2]},${op * 0.3})`);
+        ag.addColorStop(1.0, 'rgba(0,0,0,0)');
+        ctx.fillStyle = ag;
         ctx.beginPath();
         ctx.arc(px, py, spotR, 0, Math.PI * 2);
         ctx.fill();
       }
     });
 
-    // 4b. 高密度恆星流核心 (Dense Arm Streams)
+    // 4b. 恆星流核心 (Dense Arm Streams)
     armDefs.forEach(arm => {
-      const sampleCount = arm.name === 'Orion Spur' ? 1000 : 3000;
+      const sampleCount = arm.name === 'Orion Spur' ? 600 : 1800;
       for (let s = 0; s < sampleCount; s++) {
         const t = s / sampleCount;
         const r = minR + Math.pow(t, 0.84) * (maxR * arm.width - minR);
         const p1 = Math.sin(s * 0.12) * 16 * (1 - t) * S;
-        const p2 = Math.sin(s * 0.29 + 2.1) * 8 * S;
-        const theta = arm.offset + Math.log(Math.max(r, 1) / Math.max(minR, 1)) * arm.pitch + (p1 + p2) / (r + 1);
-        const px = cx + r * Math.cos(theta) + (Math.random() - 0.5) * 14 * S;
-        const py = cy + r * Math.sin(theta) + (Math.random() - 0.5) * 14 * S;
+        const theta = arm.offset + Math.log(Math.max(r, 1) / Math.max(minR, 1)) * arm.pitch + p1 / (r + 1);
+        const px = cx + r * Math.cos(theta) + (Math.random() - 0.5) * 12 * S;
+        const py = cy + r * Math.sin(theta) + (Math.random() - 0.5) * 12 * S;
 
-        const innerOp = t < 0.2 ? 0.55 : (t < 0.6 ? 0.42 : 0.30);
-        const outerOp = innerOp * 0.38;
-        const spotR = (Math.random() * 20 + 8) * S;
-        const g = ctx.createRadialGradient(px, py, 0, px, py, spotR);
-        g.addColorStop(0.0, `rgba(255,255,255,${innerOp})`);
-        g.addColorStop(0.35, `rgba(${arm.hue[0]},${arm.hue[1]},${arm.hue[2]},${outerOp})`);
-        g.addColorStop(1.0, 'rgba(0,0,0,0)');
-        ctx.fillStyle = g;
+        const innerOp = t < 0.2 ? 0.20 : 0.12;
+        const spotR = (Math.random() * 16 + 6) * S;
+        const ag = ctx.createRadialGradient(px, py, 0, px, py, spotR);
+        ag.addColorStop(0.0, `rgba(255,255,255,${innerOp})`);
+        ag.addColorStop(0.4, `rgba(${arm.hue[0]},${arm.hue[1]},${arm.hue[2]},${innerOp * 0.4})`);
+        ag.addColorStop(1.0, 'rgba(0,0,0,0)');
+        ctx.fillStyle = ag;
         ctx.beginPath();
         ctx.arc(px, py, spotR, 0, Math.PI * 2);
         ctx.fill();
@@ -1080,18 +1011,17 @@ class TextureGenerator {
     });
 
     // ═══════════════════════════════════════════════════════════
-    // 第 5 層：深色星際塵埃暗帶 (Dark Dust Lanes / Great Rift)
-    // 每條旋臂的前緣（凸壓縮側）都有一條暗黑色塵埃帶
+    // 第 5 層：深色星際塵埃暗帶 (Dark Dust Lanes - 增強 3D 吸光對比)
     // ═══════════════════════════════════════════════════════════
     ctx.globalCompositeOperation = 'multiply';
     armDefs.slice(0, 4).forEach(arm => {
-      const dustOffset = 0.12;
-      ctx.strokeStyle = 'rgba(8, 5, 15, 0.78)';
-      ctx.lineWidth = 14 * S;
+      const dustOffset = 0.11;
+      ctx.strokeStyle = 'rgba(6, 3, 10, 0.88)';
+      ctx.lineWidth = 16 * S;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      for (let s = 0; s < 800; s++) {
-        const t = s / 800;
+      for (let s = 0; s < 700; s++) {
+        const t = s / 700;
         const r = minR * 1.3 + Math.pow(t, 0.86) * (maxR * arm.width * 0.92 - minR);
         const p = Math.sin(s * 0.09) * 8 * S;
         const theta = arm.offset + dustOffset + Math.log(Math.max(r, 1) / Math.max(minR, 1)) * arm.pitch + p / (r + 1);
@@ -1101,45 +1031,26 @@ class TextureGenerator {
         else ctx.lineTo(px, py);
       }
       ctx.stroke();
-
-      // 二級碎裂塵埃 (Secondary Filamentary Dust)
-      ctx.strokeStyle = 'rgba(12, 8, 20, 0.45)';
-      ctx.lineWidth = 7 * S;
-      ctx.beginPath();
-      for (let s = 0; s < 600; s++) {
-        const t = s / 600;
-        const r = minR * 1.5 + Math.pow(t, 0.88) * (maxR * arm.width * 0.85 - minR);
-        const theta = arm.offset + dustOffset + 0.08 + Math.log(Math.max(r, 1) / Math.max(minR, 1)) * arm.pitch;
-        const px = cx + r * Math.cos(theta) + Math.sin(s * 0.2) * 12 * S;
-        const py = cy + r * Math.sin(theta) + Math.cos(s * 0.15) * 12 * S;
-        if (s === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.stroke();
     });
     ctx.globalCompositeOperation = 'source-over';
 
     // ═══════════════════════════════════════════════════════════
-    // 第 6 層：粉紅 / 洋紅 HII 電離氫發射星雲 (H-alpha Emission Regions)
-    // 集中在旋臂內側的恆星形成區，模擬獵戶座星雲、船底座星雲等
+    // 第 6 層：粉紅 / 洋紅 HII 電離星雲 (H-alpha Regions)
     // ═══════════════════════════════════════════════════════════
     armDefs.forEach(arm => {
-      const hiiCount = arm.name === 'Orion Spur' ? 60 : 120;
+      const hiiCount = arm.name === 'Orion Spur' ? 40 : 80;
       for (let h = 0; h < hiiCount; h++) {
         const t = Math.random();
         const r = minR + Math.pow(t, 0.8) * (maxR * arm.width * 0.9 - minR);
-        const theta = arm.offset + Math.log(Math.max(r, 1) / Math.max(minR, 1)) * arm.pitch + (Math.random() - 0.5) * 0.15;
-        const px = cx + r * Math.cos(theta) + (Math.random() - 0.5) * 30 * S;
-        const py = cy + r * Math.sin(theta) + (Math.random() - 0.5) * 30 * S;
-        const hiiR = (Math.random() * 22 + 6) * S;
+        const theta = arm.offset + Math.log(Math.max(r, 1) / Math.max(minR, 1)) * arm.pitch + (Math.random() - 0.5) * 0.12;
+        const px = cx + r * Math.cos(theta) + (Math.random() - 0.5) * 25 * S;
+        const py = cy + r * Math.sin(theta) + (Math.random() - 0.5) * 25 * S;
+        const hiiR = (Math.random() * 16 + 5) * S;
 
-        // 核心明亮粉紅 → 外圈洋紅柔暈
         const hg = ctx.createRadialGradient(px, py, 0, px, py, hiiR);
-        const brightness = 0.55 + Math.random() * 0.35;
-        hg.addColorStop(0.0, `rgba(255, 120, 150, ${brightness})`);
-        hg.addColorStop(0.3, `rgba(245, 80, 120, ${brightness * 0.65})`);
-        hg.addColorStop(0.6, `rgba(236, 72, 153, ${brightness * 0.30})`);
-        hg.addColorStop(1.0, 'rgba(180, 40, 100, 0)');
+        hg.addColorStop(0.0, 'rgba(255, 110, 150, 0.40)');
+        hg.addColorStop(0.4, 'rgba(235, 60, 110, 0.20)');
+        hg.addColorStop(1.0, 'rgba(160, 30, 80, 0)');
         ctx.fillStyle = hg;
         ctx.beginPath();
         ctx.arc(px, py, hiiR, 0, Math.PI * 2);
@@ -1148,43 +1059,26 @@ class TextureGenerator {
     });
 
     // ═══════════════════════════════════════════════════════════
-    // 第 7 層：數萬顆微晶恆星鑽石點 (Diamond Star Field)
-    // 白色、淡藍（O/B 型）、金黃（G/K 型）恆星在旋臂上密集散佈
+    // 第 7 層：微晶恆星星點 (Diamond Star Field - 自然精細)
     // ═══════════════════════════════════════════════════════════
     const starColors = [
-      'rgba(255,255,255,0.95)',     // 白色 A 型
-      'rgba(200,220,255,0.92)',     // 淡藍 B 型
-      'rgba(160,200,255,0.88)',     // 藍白 O 型
-      'rgba(255,240,200,0.90)',     // 金黃 G 型
-      'rgba(255,220,170,0.85)',     // 橙色 K 型
-      'rgba(255,190,140,0.78)'     // 紅色 M 型
+      'rgba(255,255,255,0.75)',
+      'rgba(190,215,255,0.70)',
+      'rgba(255,235,190,0.65)',
+      'rgba(255,210,160,0.60)'
     ];
-    for (let st = 0; st < 8000; st++) {
+    for (let st = 0; st < 3500; st++) {
       const armIdx = st % armDefs.length;
       const arm = armDefs[armIdx];
       const t = Math.pow(Math.random(), 0.85);
       const r = minR + t * (maxR * arm.width - minR);
-      const theta = arm.offset + Math.log(Math.max(r, 1) / Math.max(minR, 1)) * arm.pitch + (Math.random() - 0.5) * 0.22;
-      const px = cx + r * Math.cos(theta) + (Math.random() - 0.5) * 18 * S;
-      const py = cy + r * Math.sin(theta) + (Math.random() - 0.5) * 18 * S;
+      const theta = arm.offset + Math.log(Math.max(r, 1) / Math.max(minR, 1)) * arm.pitch + (Math.random() - 0.5) * 0.20;
+      const px = cx + r * Math.cos(theta) + (Math.random() - 0.5) * 15 * S;
+      const py = cy + r * Math.sin(theta) + (Math.random() - 0.5) * 15 * S;
 
       ctx.fillStyle = starColors[Math.floor(Math.random() * starColors.length)];
-      const starR = Math.random() * 2.2 + 0.5;
       ctx.beginPath();
-      ctx.arc(px, py, starR * S, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // 散場恆星（非旋臂區域，模擬銀盤背景星場）
-    for (let bg = 0; bg < 3000; bg++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = Math.random() * maxR;
-      const px = cx + r * Math.cos(angle);
-      const py = cy + r * Math.sin(angle);
-      const op = 0.3 + Math.random() * 0.4;
-      ctx.fillStyle = `rgba(255,255,255,${op})`;
-      ctx.beginPath();
-      ctx.arc(px, py, (Math.random() * 1.2 + 0.3) * S, 0, Math.PI * 2);
+      ctx.arc(px, py, (Math.random() * 1.3 + 0.3) * S, 0, Math.PI * 2);
       ctx.fill();
     }
 

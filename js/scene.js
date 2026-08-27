@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Three.js 3D 視覺渲染與互動場景 (Solar System 3D Scene)
  * 負責天體網格、動態光影、軌道線、日心方位射線、小行星帶及相機跟隨系統
  */
@@ -1127,14 +1127,14 @@ class SolarScene {
 
   /**
    * 建立極致擬真銀河系 3D 立體棒旋星系 (Next-Gen Photorealistic Barred Spiral Galaxy)
-   * 頂級電影特效 / NASA 深空天文物理級多層體積渲染架構：
-   *   Layer 1 — 65,000 顆螺旋臂與星盤恆星 (依天文物理對數密度波 + 光譜型 OBAFGKM 著色 + 碎形湍流)
-   *   Layer 2 — 15,000 團星際深色分子塵埃 (大裂谷 Great Rift 吸光暗星雲，產生真實 3D 遮蔽深度)
+   * 柔和深邃自然星系光度調校（杜絕過度亮爆）：
+   *   Layer 1 — 65,000 顆螺旋臂與星盤恆星 (精緻微晶針尖星芒，柔和自然輝光)
+   *   Layer 2 — 15,000 團星際深色分子塵埃 (大裂谷 Great Rift 吸光暗星雲，產生高對比 3D 深度)
    *   Layer 3 — 8,000 團電離氫 HII 恆星發射星雲 (H-alpha 656.3nm 洋紅/粉紅恆星育嬰室)
    *   Layer 4 — 25,000 顆中心三軸老年恆星棒與核球星團 (Triaxial Bar & Nuclear Star Cluster at 44°)
-   *   Layer 5 — 20,000 顆球狀星團與古老恆星暈 (Stellar Halo & Globular Clusters)
-   *   Layer 6 — 4K 棒旋星系盤面紋理與 6 層立體星際雲氣 (Volumetric Gaseous Disc)
-   *   Layer 7 — 人馬座 A* 銀心超亮光核與太陽系獵戶臂定位導航標記
+   *   Layer 5 — 20,000 顆球狀星團與古老恆星暈 (微弱深空星暈)
+   *   Layer 6 — 4K 棒旋星系盤面紋理 (典雅深邃不透明度 0.16)
+   *   Layer 7 — 人馬座 A* 銀心柔和金白核球與太陽系獵戶臂定位導航標記
    */
   createMilkyWayGalaxy() {
     this.milkyWayGroup = new THREE.Group();
@@ -1145,10 +1145,10 @@ class SolarScene {
     const hiiCloudTex = TextureGenerator.createHIICloudTexture();
 
     // ═══════════════════════════════════════════════════════════════
-    // Layer 1 — 65,000 顆旋臂與星盤恆星 (Spiral Arm Stellar Density Waves)
+    // Layer 1 — 65,000 顆旋臂與星盤恆星 (精緻微晶針尖星芒)
     // ═══════════════════════════════════════════════════════════════
     const armDefs = [
-      { name: 'Scutum-Centaurus', offset: 0,             pitch: 0.0028, baseColor: [255, 242, 215] },
+      { name: 'Scutum-Centaurus', offset: 0,             pitch: 0.0028, baseColor: [255, 240, 215] },
       { name: 'Perseus',          offset: Math.PI,        pitch: 0.0029, baseColor: [195, 225, 255] },
       { name: 'Sagittarius',      offset: Math.PI * 0.55, pitch: 0.0026, baseColor: [215, 235, 255] },
       { name: 'Norma-Outer',      offset: Math.PI * 1.55, pitch: 0.0031, baseColor: [185, 215, 250] },
@@ -1170,14 +1170,12 @@ class SolarScene {
         const radius = Math.pow(Math.random(), 1.25) * galaxyRadius;
         const spinAngle = radius * arm.pitch;
 
-        // 3 階多頻率碎形擾動 (Fractal Turbulence)，模擬星雲絲狀分叉與羽狀支臂
         const f1 = Math.sin(i * 0.08 + arm.offset) * 40 * (1 - radius / galaxyRadius);
         const f2 = Math.sin(i * 0.24 + 1.8) * 20;
         const f3 = Math.sin(i * 0.62 + 3.5) * 9;
         const spread = (radius / galaxyRadius) * 160 + 20 + f1 + f2 + f3;
 
         const randomX = (Math.random() - 0.5) * spread;
-        // 銀盤垂直尺度高度 sech²(z/z0) 分佈
         const scaleHeight = 150 * Math.exp(-radius / 650) + 18;
         const randomY = (Math.random() - 0.5) * scaleHeight * (1 + 0.4 * Math.exp(-radius / 300));
         const randomZ = (Math.random() - 0.5) * spread;
@@ -1190,32 +1188,28 @@ class SolarScene {
         armPos[aIdx * 3 + 1] = y;
         armPos[aIdx * 3 + 2] = z;
 
-        // 依光譜分類 (Spectral Types OBAFGKM) 及日心半徑進行真實色溫分佈
         const t = radius / galaxyRadius;
         let r, g, b;
         if (t < 0.12) {
-          // 核球區：老年金黃恆星 (Pop II G/K/M)
-          r = 1.0;
-          g = 0.92 + Math.random() * 0.08;
-          b = 0.75 + Math.random() * 0.12;
+          r = 0.95;
+          g = 0.88 + Math.random() * 0.08;
+          b = 0.70 + Math.random() * 0.12;
         } else if (t < 0.60) {
-          // 旋臂中段：年輕高溫藍巨星與白恆星 (Pop I O/B/A)
           const mix = (t - 0.12) / 0.48;
-          r = (255 * (1 - mix) + arm.baseColor[0] * mix) / 255;
-          g = (240 * (1 - mix) + arm.baseColor[1] * mix) / 255;
-          b = (200 * (1 - mix) + arm.baseColor[2] * mix) / 255;
+          r = (245 * (1 - mix) + arm.baseColor[0] * mix) / 255;
+          g = (230 * (1 - mix) + arm.baseColor[1] * mix) / 255;
+          b = (195 * (1 - mix) + arm.baseColor[2] * mix) / 255;
         } else {
-          // 外緣盤面：冷冽冰藍星雲散光
-          r = 0.60 + Math.random() * 0.20;
-          g = 0.75 + Math.random() * 0.18;
-          b = 0.95 + Math.random() * 0.05;
+          r = 0.55 + Math.random() * 0.20;
+          g = 0.70 + Math.random() * 0.18;
+          b = 0.90 + Math.random() * 0.08;
         }
 
         armCol[aIdx * 3] = r;
         armCol[aIdx * 3 + 1] = g;
         armCol[aIdx * 3 + 2] = b;
 
-        armSize[aIdx] = (1.0 - t * 0.5) * (6.0 + Math.random() * 5.0);
+        armSize[aIdx] = (1.0 - t * 0.5) * (3.8 + Math.random() * 3.0);
         aIdx++;
       }
     });
@@ -1234,8 +1228,8 @@ class SolarScene {
         void main() {
           vColor = color;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = size * (400.0 / -mvPosition.z);
-          gl_PointSize = clamp(gl_PointSize, 1.0, 28.0);
+          gl_PointSize = size * (150.0 / -mvPosition.z);
+          gl_PointSize = clamp(gl_PointSize, 1.0, 7.0);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -1244,7 +1238,7 @@ class SolarScene {
         varying vec3 vColor;
         void main() {
           vec4 texColor = texture2D(starTexture, gl_PointCoord);
-          gl_FragColor = vec4(vColor, 1.0) * texColor;
+          gl_FragColor = vec4(vColor * 0.70, 0.22) * texColor;
           if (gl_FragColor.a < 0.01) discard;
         }
       `,
@@ -1259,7 +1253,7 @@ class SolarScene {
 
     // ═══════════════════════════════════════════════════════════════
     // Layer 2 — 15,000 團星際深色分子塵埃 (Dark Molecular Dust Clouds - Great Rift)
-    // 沉積於旋臂內緣激波面，提供無可比擬的 3D 剪影與深空立體感
+    // 沉積於旋臂內緣激波面，提供真實吸光剪影與 3D 深度
     // ═══════════════════════════════════════════════════════════════
     const dustCount = 15000;
     const dustGeo = new THREE.BufferGeometry();
@@ -1270,7 +1264,7 @@ class SolarScene {
       const arm = armDefs[d % armDefs.length];
       const t = Math.pow(Math.random(), 0.9);
       const radius = 180 + t * (galaxyRadius * 0.85 - 180);
-      const dustLagAngle = 0.08 + Math.sin(d * 0.1) * 0.03; // 緊貼旋臂內緣
+      const dustLagAngle = 0.08 + Math.sin(d * 0.1) * 0.03;
       const spinAngle = radius * arm.pitch + dustLagAngle;
 
       const pSpread = (radius / galaxyRadius) * 45 + 10;
@@ -1282,7 +1276,7 @@ class SolarScene {
       dustPos[d * 3 + 1] = dy;
       dustPos[d * 3 + 2] = dz;
 
-      dustSize[d] = (Math.random() * 22 + 14) * (1.0 + t * 0.5);
+      dustSize[d] = (Math.random() * 18 + 10) * (1.0 + t * 0.4);
     }
 
     dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
@@ -1296,8 +1290,8 @@ class SolarScene {
         attribute float size;
         void main() {
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = size * (320.0 / -mvPosition.z);
-          gl_PointSize = clamp(gl_PointSize, 2.0, 48.0);
+          gl_PointSize = size * (180.0 / -mvPosition.z);
+          gl_PointSize = clamp(gl_PointSize, 1.5, 24.0);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -1305,7 +1299,7 @@ class SolarScene {
         uniform sampler2D dustTex;
         void main() {
           vec4 tex = texture2D(dustTex, gl_PointCoord);
-          gl_FragColor = vec4(0.04, 0.02, 0.06, tex.a * 0.65);
+          gl_FragColor = vec4(0.015, 0.01, 0.03, tex.a * 0.75);
           if (gl_FragColor.a < 0.01) discard;
         }
       `,
@@ -1341,18 +1335,17 @@ class SolarScene {
       hiiPos[h * 3 + 1] = hy;
       hiiPos[h * 3 + 2] = hz;
 
-      // H-alpha 洋紅、玫瑰紅、電離氧天藍混合
       if (Math.random() < 0.75) {
-        hiiCol[h * 3] = 1.0;
-        hiiCol[h * 3 + 1] = 0.28 + Math.random() * 0.20;
-        hiiCol[h * 3 + 2] = 0.55 + Math.random() * 0.25;
+        hiiCol[h * 3] = 0.80;
+        hiiCol[h * 3 + 1] = 0.20 + Math.random() * 0.12;
+        hiiCol[h * 3 + 2] = 0.40 + Math.random() * 0.15;
       } else {
-        hiiCol[h * 3] = 0.35 + Math.random() * 0.20;
-        hiiCol[h * 3 + 1] = 0.85 + Math.random() * 0.15;
-        hiiCol[h * 3 + 2] = 1.0;
+        hiiCol[h * 3] = 0.25 + Math.random() * 0.12;
+        hiiCol[h * 3 + 1] = 0.65 + Math.random() * 0.15;
+        hiiCol[h * 3 + 2] = 0.80;
       }
 
-      hiiSize[h] = (Math.random() * 18 + 10);
+      hiiSize[h] = (Math.random() * 10 + 5);
     }
 
     hiiGeo.setAttribute('position', new THREE.BufferAttribute(hiiPos, 3));
@@ -1369,8 +1362,8 @@ class SolarScene {
         void main() {
           vColor = color;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = size * (340.0 / -mvPosition.z);
-          gl_PointSize = clamp(gl_PointSize, 1.0, 42.0);
+          gl_PointSize = size * (160.0 / -mvPosition.z);
+          gl_PointSize = clamp(gl_PointSize, 1.0, 16.0);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -1379,7 +1372,7 @@ class SolarScene {
         varying vec3 vColor;
         void main() {
           vec4 tex = texture2D(hiiTex, gl_PointCoord);
-          gl_FragColor = vec4(vColor, 1.0) * tex;
+          gl_FragColor = vec4(vColor * 0.60, 0.18) * tex;
           if (gl_FragColor.a < 0.01) discard;
         }
       `,
@@ -1394,7 +1387,6 @@ class SolarScene {
 
     // ═══════════════════════════════════════════════════════════════
     // Layer 4 — 25,000 顆中心三軸棒與核球星團 (Triaxial Stellar Bar & NSC)
-    // 棒長 ~3.5 kpc (450 單位)，傾角 44°，三軸花生狀分佈
     // ═══════════════════════════════════════════════════════════════
     const barCount = 25000;
     const barGeo = new THREE.BufferGeometry();
@@ -1402,22 +1394,20 @@ class SolarScene {
     const barCol = new Float32Array(barCount * 3);
     const barSize = new Float32Array(barCount);
 
-    const barAngle = Math.PI / 4.1; // 44 度銀棒位置角
+    const barAngle = Math.PI / 4.1;
     const cosB = Math.cos(barAngle);
     const sinB = Math.sin(barAngle);
 
     for (let b = 0; b < barCount; b++) {
-      // 三軸橢球 (a=420, b=150, c=110)
       const u = (Math.random() - 0.5) * 2;
       const v = (Math.random() - 0.5) * 2;
       const w = (Math.random() - 0.5) * 2;
       const decay = Math.pow(Math.random(), 0.7);
 
       const localX = u * 380 * decay;
-      const localY = w * 95 * decay * (1.0 - Math.abs(u) * 0.3); // 花生狀收腰
+      const localY = w * 95 * decay * (1.0 - Math.abs(u) * 0.3);
       const localZ = v * 140 * decay;
 
-      // 旋轉 44 度
       const rotX = localX * cosB - localZ * sinB;
       const rotZ = localX * sinB + localZ * cosB;
 
@@ -1425,26 +1415,55 @@ class SolarScene {
       barPos[b * 3 + 1] = localY;
       barPos[b * 3 + 2] = rotZ;
 
-      // 金白、暖橙色核球恆星
       const distToCenter = Math.sqrt(rotX * rotX + localY * localY + rotZ * rotZ);
       const cNorm = Math.min(distToCenter / 400, 1.0);
-      barCol[b * 3] = 1.0;
-      barCol[b * 3 + 1] = 0.94 - cNorm * 0.25;
-      barCol[b * 3 + 2] = 0.80 - cNorm * 0.35;
+      barCol[b * 3] = 0.90;
+      barCol[b * 3 + 1] = 0.82 - cNorm * 0.18;
+      barCol[b * 3 + 2] = 0.65 - cNorm * 0.25;
 
-      barSize[b] = (1.0 - cNorm * 0.4) * (7.0 + Math.random() * 4.0);
+      barSize[b] = (1.0 - cNorm * 0.4) * (3.8 + Math.random() * 2.2);
     }
 
     barGeo.setAttribute('position', new THREE.BufferAttribute(barPos, 3));
     barGeo.setAttribute('color', new THREE.BufferAttribute(barCol, 3));
     barGeo.setAttribute('size', new THREE.BufferAttribute(barSize, 1));
 
-    const barPointsMesh = new THREE.Points(barGeo, armShaderMat);
+    const barShaderMat = new THREE.ShaderMaterial({
+      uniforms: {
+        starTexture: { value: starSpriteTex }
+      },
+      vertexShader: `
+        attribute float size;
+        varying vec3 vColor;
+        void main() {
+          vColor = color;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * (150.0 / -mvPosition.z);
+          gl_PointSize = clamp(gl_PointSize, 1.0, 7.5);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D starTexture;
+        varying vec3 vColor;
+        void main() {
+          vec4 texColor = texture2D(starTexture, gl_PointCoord);
+          gl_FragColor = vec4(vColor * 0.65, 0.18) * texColor;
+          if (gl_FragColor.a < 0.01) discard;
+        }
+      `,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true,
+      vertexColors: true
+    });
+
+    const barPointsMesh = new THREE.Points(barGeo, barShaderMat);
     this.milkyWayGroup.add(barPointsMesh);
 
     // ═══════════════════════════════════════════════════════════════
-    // Layer 5 — 20,000 顆球狀星暈與古老恆星 (Stellar Halo & Globular Clusters)
-    // ═══════════════════════════════════════════════════════════════
+    // Layer 5 — 20,000 顆球狀星暈與古老恆星 (微弱深空星暈)
+    // ═══════════════════════════════════════════════════════════
     const haloCount = 20000;
     const haloGeo = new THREE.BufferGeometry();
     const haloPos = new Float32Array(haloCount * 3);
@@ -1455,43 +1474,42 @@ class SolarScene {
       const phi = Math.acos(2 * Math.random() - 1);
       const r = Math.pow(Math.random(), 0.65) * galaxyRadius * 1.25;
       haloPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      haloPos[i * 3 + 1] = r * Math.cos(phi) * 0.55; // 扁球暈
+      haloPos[i * 3 + 1] = r * Math.cos(phi) * 0.55;
       haloPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
 
       const warmth = Math.random();
-      haloCol[i * 3] = 0.90 + warmth * 0.10;
-      haloCol[i * 3 + 1] = 0.72 + warmth * 0.15;
-      haloCol[i * 3 + 2] = 0.52 + warmth * 0.15;
+      haloCol[i * 3] = 0.75 + warmth * 0.10;
+      haloCol[i * 3 + 1] = 0.58 + warmth * 0.12;
+      haloCol[i * 3 + 2] = 0.40 + warmth * 0.12;
     }
     haloGeo.setAttribute('position', new THREE.BufferAttribute(haloPos, 3));
     haloGeo.setAttribute('color', new THREE.BufferAttribute(haloCol, 3));
 
     const haloMat = new THREE.PointsMaterial({
-      size: 3.8,
+      size: 1.8,
       map: starSpriteTex,
       sizeAttenuation: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       vertexColors: true,
       transparent: true,
-      opacity: 0.40
+      opacity: 0.08
     });
     const haloPoints = new THREE.Points(haloGeo, haloMat);
     this.milkyWayGroup.add(haloPoints);
 
     // ═══════════════════════════════════════════════════════════════
-    // Layer 6 — 4K 棒旋星系盤面紋理與 6 層立體星際雲氣 (Volumetric Gaseous Disc)
-    // ═══════════════════════════════════════════════════════════════
+    // Layer 6 — 4K 棒旋星系盤面紋理 (典雅深邃不透明度 0.16)
+    // ═══════════════════════════════════════════════════════════
     const mwDiskTex = TextureGenerator.createMilkyWayDiskTexture(4096);
     const diskSize = galaxyRadius * 2.25;
     const mwDiskGeo = new THREE.PlaneGeometry(diskSize, diskSize);
 
-    // 主盤面
     const mwDiskMat = new THREE.MeshBasicMaterial({
       map: mwDiskTex,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.16,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -1499,56 +1517,31 @@ class SolarScene {
     mwDiskMesh.rotation.x = -Math.PI / 2;
     this.milkyWayGroup.add(mwDiskMesh);
 
-    // 上下 6 層立體氣體暈 (Volumetric Gaseous Halo Discs)
-    const haloOffsets = [
-      { y:  12, opacity: 0.38, scale: 1.015 },
-      { y: -12, opacity: 0.38, scale: 1.015 },
-      { y:  26, opacity: 0.20, scale: 1.035 },
-      { y: -26, opacity: 0.20, scale: 1.035 },
-      { y:  45, opacity: 0.09, scale: 1.060 },
-      { y: -45, opacity: 0.09, scale: 1.060 }
-    ];
-    haloOffsets.forEach(h => {
-      const hMat = new THREE.MeshBasicMaterial({
-        map: mwDiskTex,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: h.opacity,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const hMesh = new THREE.Mesh(mwDiskGeo, hMat);
-      hMesh.rotation.x = -Math.PI / 2;
-      hMesh.position.y = h.y;
-      hMesh.scale.set(h.scale, h.scale, h.scale);
-      this.milkyWayGroup.add(hMesh);
-    });
-
     // ═══════════════════════════════════════════════════════════════
-    // Layer 7 — 銀心超亮核球 3D 橢球體與人馬座 A*
-    // ═══════════════════════════════════════════════════════════════
-    const bulgeOuterGeo = new THREE.SphereGeometry(120, 48, 48);
+    // Layer 7 — 銀心微弱核球輝光與人馬座 A*
+    // ═══════════════════════════════════════════════════════════
+    const bulgeOuterGeo = new THREE.SphereGeometry(90, 32, 32);
     const bulgeOuterMat = new THREE.MeshBasicMaterial({
       color: 0xffedd5,
       transparent: true,
-      opacity: 0.60,
+      opacity: 0.05,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const bulgeOuter = new THREE.Mesh(bulgeOuterGeo, bulgeOuterMat);
-    bulgeOuter.scale.set(1.0, 0.42, 1.0);
+    bulgeOuter.scale.set(1.0, 0.40, 1.0);
     this.milkyWayGroup.add(bulgeOuter);
 
-    const bulgeInnerGeo = new THREE.SphereGeometry(55, 32, 32);
+    const bulgeInnerGeo = new THREE.SphereGeometry(40, 24, 24);
     const bulgeInnerMat = new THREE.MeshBasicMaterial({
       color: 0xfffff5,
       transparent: true,
-      opacity: 0.90,
+      opacity: 0.12,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const bulgeInner = new THREE.Mesh(bulgeInnerGeo, bulgeInnerMat);
-    bulgeInner.scale.set(1.0, 0.38, 1.0);
+    bulgeInner.scale.set(1.0, 0.35, 1.0);
     this.milkyWayGroup.add(bulgeInner);
 
     // ═══════════════════════════════════════════════════════════════
@@ -1559,7 +1552,7 @@ class SolarScene {
       color: 0x00f2fe,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.92
+      opacity: 0.85
     });
     const sunBeacon = new THREE.Mesh(sunBeaconGeo, sunBeaconMat);
     sunBeacon.rotation.x = Math.PI / 2;
@@ -1571,7 +1564,7 @@ class SolarScene {
       color: 0x00f2fe,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.35,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -1601,7 +1594,6 @@ class SolarScene {
     this.milkyWayGroup.position.set(0, 0, -1400);
     this.scene.add(this.milkyWayGroup);
   }
-
   /**
    * 建立已知黑洞 (包含目前已知最靠近太陽系的 Gaia BH1 與銀心人馬座 A*)
    */

@@ -1,23 +1,25 @@
 ﻿/**
  * 🌐 全宇宙 / 可觀測宇宙 3D 極致探索平台 (Observable Universe 3D Engine)
- * 搭載：4K 普朗克微波背景輻射 (CMB) + 100,000+ 宇宙大尺度纖維網 (Cosmic Web) +
- * 拉尼亞凱亞金色重力流線 (Laniakea Flow) + 本地星系群 (Local Group) + 類星體 TON 618
+ * 物理真實深空色調重構 (True-Color Deep Space Astrophotography)：
+ *   - 徹底杜絕人造霓虹藍光與刺眼假色
+ *   - 宇宙深空背景採用極致純黑 (#000000 / #020204)
+ *   - 100,000+ 星系團採用真實恆星黑體輻射光譜 (自然白光 6000K、溫潤金黃 4500K、柔和暖琥珀 3500K)
+ *   - 普朗克 CMB 餘暉微弱深空色調對應
+ *   - 拉尼亞凱亞重力流線採用典雅香檳星光絲線
  */
 
 class UniverseApp {
   constructor() {
     this.container = document.getElementById('universe-canvas-container');
-    this.currentMode = 'all'; // all, cmb, web, laniakea, local_group
     this.cameraLerpTarget = null;
     this.controlsTargetLerp = null;
     this.activeItem = null;
     this.isPaused = false;
-    this.flowTime = 0;
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
 
     this.layers = {
-      cmb: true,
+      cmb: false,            // 預設關閉人造假色 CMB，呈現純淨真實深空
       cosmicWeb: true,
       laniakeaFlow: true,
       superclusters: true,
@@ -42,6 +44,8 @@ class UniverseApp {
 
   initScene() {
     this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x010204); // 極致深空純黑
+
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
 
@@ -52,7 +56,7 @@ class UniverseApp {
     this.renderer.setSize(w, h);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.25;
+    this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.container.appendChild(this.renderer.domElement);
 
@@ -68,35 +72,36 @@ class UniverseApp {
   }
 
   initLighting() {
-    const amb = new THREE.AmbientLight(0xffffff, 1.0);
+    // 自然中性白光，杜絕人造藍色點光源
+    const amb = new THREE.AmbientLight(0xffffff, 0.85);
     this.scene.add(amb);
 
-    const centerLight = new THREE.PointLight(0x38bdf8, 2.0, 5000, 1.0);
+    const centerLight = new THREE.PointLight(0xfffaed, 1.8, 6000, 1.2);
     centerLight.position.set(0, 0, 0);
     this.scene.add(centerLight);
   }
 
-  // 1. 宇宙微波背景輻射 (CMB) 4K 全天球面 (Planck 2.725K Anisotropy)
+  // 1. 宇宙微波背景輻射 (CMB) — 自然柔和深空微波映射 (預設可選疊加)
   buildCMBSphere() {
     const canvas = document.createElement('canvas');
     canvas.width = 2048;
     canvas.height = 1024;
     const ctx = canvas.getContext('2d');
 
-    // 普朗克全天溫度微小漲落 (紅藍溫差圖，ΔT/T ~ 10^-5)
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = '#020204';
     ctx.fillRect(0, 0, 2048, 1024);
 
-    const cmbColors = ['#1e3a8a', '#2563eb', '#38bdf8', '#fbbf24', '#f97316', '#ef4444'];
-    for (let i = 0; i < 4000; i++) {
+    // 柔和低飽和度溫度微小漲落
+    const cmbColors = ['#1e293b', '#334155', '#475569', '#78716c', '#b45309', '#991b1b'];
+    for (let i = 0; i < 3500; i++) {
       const cx = Math.random() * 2048;
       const cy = Math.random() * 1024;
-      const r = Math.random() * 45 + 15;
+      const r = Math.random() * 40 + 10;
       const col = cmbColors[Math.floor(Math.random() * cmbColors.length)];
 
       const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
       grad.addColorStop(0, col);
-      grad.addColorStop(0.5, 'rgba(30, 58, 138, 0.4)');
+      grad.addColorStop(0.6, 'rgba(15, 23, 42, 0.15)');
       grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
       ctx.fillStyle = grad;
@@ -106,19 +111,20 @@ class UniverseApp {
     }
 
     const cmbTex = new THREE.CanvasTexture(canvas);
-    const cmbGeo = new THREE.SphereGeometry(15000, 64, 64);
+    const cmbGeo = new THREE.SphereGeometry(16000, 64, 64);
     this.cmbMat = new THREE.MeshBasicMaterial({
       map: cmbTex,
       side: THREE.BackSide,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.35,
       depthWrite: false
     });
     this.cmbSphere = new THREE.Mesh(cmbGeo, this.cmbMat);
+    this.cmbSphere.visible = this.layers.cmb;
     this.scene.add(this.cmbSphere);
   }
 
-  // 2. 宇宙大尺度纖維網狀結構 (Cosmic Web - 80,000 星系團粒子)
+  // 2. 宇宙大尺度纖維網 (Cosmic Web - 80,000 真實恆星光譜星系粒子)
   buildCosmicWeb() {
     this.cosmicWebGroup = new THREE.Group();
     const particleCount = 80000;
@@ -129,44 +135,51 @@ class UniverseApp {
 
     const starTex = TextureGenerator.createStarSpriteTexture();
 
-    // 依據宇宙絲狀流結構 (Filaments) 與空洞 (Voids) 分佈
+    // 真實恆星與星系光譜色彩表 (黑體輻射：純白、溫潤金黃、象牙白、琥珀橙)
+    const starlightPalette = [
+      [1.00, 1.00, 1.00], // 10000K 鑽石白
+      [0.98, 0.95, 0.88], // 6500K 太陽型自然白
+      [1.00, 0.90, 0.72], // 5000K 溫潤金黃
+      [0.95, 0.80, 0.60], // 4000K 老年恆星群
+      [0.90, 0.65, 0.45]  // 3200K 紅巨星群
+    ];
+
     for (let i = 0; i < particleCount; i++) {
       const u = Math.random();
       const radius = Math.pow(u, 0.75) * 6500;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
 
-      // 絲狀擾動調變 (3 階正弦波干涉形成纖維壁面與巨洞)
+      // 絲狀流結構 (Filaments) 與巨洞 (Voids)
       const f1 = Math.sin(theta * 4 + phi * 3) * 0.4;
       const f2 = Math.cos(theta * 7 - phi * 5) * 0.25;
       const filamentDensity = Math.abs(f1 + f2);
 
       const rMod = radius * (1.0 + f1 * 0.3);
       const x = rMod * Math.sin(phi) * Math.cos(theta);
-      const y = rMod * Math.cos(phi) * 0.65; // 宏觀微幅扁化
+      const y = rMod * Math.cos(phi) * 0.65;
       const z = rMod * Math.sin(phi) * Math.sin(theta);
 
       pos[i * 3] = x;
       pos[i * 3 + 1] = y;
       pos[i * 3 + 2] = z;
 
-      // 顏色依紅移與星系密度：高密度節點呈亮金黃/白，纖維壁呈淺藍/紫色
+      // 自然星光物理色彩
+      let colorSample;
       if (filamentDensity > 0.45) {
-        col[i * 3] = 1.0;
-        col[i * 3 + 1] = 0.90;
-        col[i * 3 + 2] = 0.70;
-        size[i] = Math.random() * 3.5 + 2.0;
-      } else if (filamentDensity > 0.25) {
-        col[i * 3] = 0.40;
-        col[i * 3 + 1] = 0.70;
-        col[i * 3 + 2] = 1.0;
-        size[i] = Math.random() * 2.5 + 1.2;
+        colorSample = starlightPalette[Math.floor(Math.random() * 2)]; // 緻密節點：純白/亮白
+        size[i] = Math.random() * 2.8 + 1.8;
+      } else if (filamentDensity > 0.22) {
+        colorSample = starlightPalette[Math.floor(Math.random() * 3 + 1)]; // 纖維壁：溫金/象牙
+        size[i] = Math.random() * 2.0 + 1.0;
       } else {
-        col[i * 3] = 0.65;
-        col[i * 3 + 1] = 0.35;
-        col[i * 3 + 2] = 0.95;
-        size[i] = Math.random() * 1.8 + 0.8;
+        colorSample = starlightPalette[4]; // 稀疏邊界：暗琥珀
+        size[i] = Math.random() * 1.5 + 0.6;
       }
+
+      col[i * 3] = colorSample[0];
+      col[i * 3 + 1] = colorSample[1];
+      col[i * 3 + 2] = colorSample[2];
     }
 
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -181,8 +194,8 @@ class UniverseApp {
         void main() {
           vColor = color;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = size * (220.0 / -mvPosition.z);
-          gl_PointSize = clamp(gl_PointSize, 1.0, 6.0);
+          gl_PointSize = size * (180.0 / -mvPosition.z);
+          gl_PointSize = clamp(gl_PointSize, 1.0, 5.0);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -191,7 +204,7 @@ class UniverseApp {
         varying vec3 vColor;
         void main() {
           vec4 texColor = texture2D(starTexture, gl_PointCoord);
-          gl_FragColor = vec4(vColor, 0.65) * texColor;
+          gl_FragColor = vec4(vColor * 0.85, 0.55) * texColor;
           if (gl_FragColor.a < 0.01) discard;
         }
       `,
@@ -206,16 +219,16 @@ class UniverseApp {
     this.scene.add(this.cosmicWebGroup);
   }
 
-  // 3. 拉尼亞凱亞超星系團金色重力流線 (Laniakea Gravitational Streamlines)
+  // 3. 拉尼亞凱亞重力流線 (Laniakea Flow - 典雅香檳金星光絲線)
   buildLaniakeaFlow() {
     this.laniakeaGroup = new THREE.Group();
     const streamlineCount = 120;
-    const gaPos = new THREE.Vector3(120, -45, 180); // 巨引源座標
+    const gaPos = new THREE.Vector3(120, -45, 180);
 
     const lineMat = new THREE.LineBasicMaterial({
-      color: 0xf59e0b,
+      color: 0xfef08a,
       transparent: true,
-      opacity: 0.38,
+      opacity: 0.22,
       blending: THREE.AdditiveBlending
     });
 
@@ -231,11 +244,10 @@ class UniverseApp {
         r * Math.sin(phi) * Math.sin(theta)
       );
 
-      // 產生平滑流向巨引源的三次貝茲曲線 (Bezier Curve)
       const midPt = startPt.clone().lerp(gaPos, 0.5).add(new THREE.Vector3(
-        (Math.random() - 0.5) * 50,
-        (Math.random() - 0.5) * 30,
-        (Math.random() - 0.5) * 50
+        (Math.random() - 0.5) * 45,
+        (Math.random() - 0.5) * 25,
+        (Math.random() - 0.5) * 45
       ));
 
       const curve = new THREE.QuadraticBezierCurve3(startPt, midPt, gaPos);
@@ -245,12 +257,12 @@ class UniverseApp {
       this.laniakeaGroup.add(line);
     }
 
-    // 巨引源引力核心光暈
-    const gaCoreGeo = new THREE.SphereGeometry(22, 32, 32);
+    // 巨引源核心引力樞紐 (柔和琥珀光核)
+    const gaCoreGeo = new THREE.SphereGeometry(18, 32, 32);
     const gaCoreMat = new THREE.MeshBasicMaterial({
-      color: 0xec4899,
+      color: 0xf59e0b,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.25,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -261,11 +273,11 @@ class UniverseApp {
     this.scene.add(this.laniakeaGroup);
   }
 
-  // 4. 本地星系群 3D 星系模型 (Milky Way, Andromeda M31, Triangulum M33)
+  // 4. 本地星系群 3D 星系模型 (真實自然色調)
   buildLocalGroup() {
     this.localGroupObjects = new THREE.Group();
 
-    // 4a. 銀河系 (Milky Way at 0, 0, 0)
+    // 銀河系 (Milky Way at 0, 0, 0)
     const mwGeo = new THREE.PlaneGeometry(12, 12);
     const mwMat = new THREE.MeshBasicMaterial({
       map: TextureGenerator.createMilkyWayDiskTexture(1024),
@@ -278,14 +290,14 @@ class UniverseApp {
     mw.rotation.x = -Math.PI / 2.2;
     this.localGroupObjects.add(mw);
 
-    // 4b. 仙女座星系 (Andromeda M31 at x: -12, y: -8, z: 22)
+    // 仙女座星系 (Andromeda M31 at x: -12, y: -8, z: 22 - 自然金白/溫潤螺旋)
     const m31Geo = new THREE.PlaneGeometry(24, 24);
     const m31Mat = new THREE.MeshBasicMaterial({
       map: TextureGenerator.createMilkyWayDiskTexture(1024),
-      color: 0x93c5fd,
+      color: 0xfffbeb,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.90,
+      opacity: 0.92,
       depthWrite: false
     });
     const m31 = new THREE.Mesh(m31Geo, m31Mat);
@@ -294,14 +306,14 @@ class UniverseApp {
     m31.rotation.z = Math.PI / 5;
     this.localGroupObjects.add(m31);
 
-    // 4c. 三角座星系 (M33 at x: -18, y: -12, z: 20)
+    // 三角座星系 (M33 at x: -18, y: -12, z: 20)
     const m33Geo = new THREE.PlaneGeometry(7, 7);
     const m33Mat = new THREE.MeshBasicMaterial({
       map: TextureGenerator.createMilkyWayDiskTexture(512),
-      color: 0xc4b5fd,
+      color: 0xfef3c7,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.88,
       depthWrite: false
     });
     const m33 = new THREE.Mesh(m33Geo, m33Mat);
@@ -312,15 +324,14 @@ class UniverseApp {
     this.scene.add(this.localGroupObjects);
   }
 
-  // 5. 宇宙極端天體 (TON 618 類星體、韋伯深空場)
+  // 5. 宇宙極端天體 (TON 618 類星體 - 極致耀眼金白高能核心)
   buildCosmicExtremes() {
     this.extremesGroup = new THREE.Group();
 
-    // TON 618 類星體 (極致耀眼藍白吸積盤 + 巨型極向噴流)
     const tonPos = new THREE.Vector3(1200, 1500, -800);
     const tonDiskGeo = new THREE.RingGeometry(8, 65, 48);
     const tonDiskMat = new THREE.MeshBasicMaterial({
-      map: TextureGenerator.createAccretionDiskTexture('#38bdf8', '#ffffff', '#6366f1', 1024),
+      map: TextureGenerator.createAccretionDiskTexture('#f59e0b', '#ffffff', '#dc2626', 1024),
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0.95,
@@ -335,10 +346,10 @@ class UniverseApp {
     // TON 618 極向噴流
     const jetGeo = new THREE.CylinderGeometry(1.5, 18, 320, 16, 1, true);
     const jetMat = new THREE.MeshBasicMaterial({
-      map: TextureGenerator.createRelativisticJetTexture('#38bdf8'),
+      map: TextureGenerator.createRelativisticJetTexture('#fef08a'),
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.70,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -354,24 +365,24 @@ class UniverseApp {
     this.scene.add(this.extremesGroup);
   }
 
-  // 6. 宇宙距離標尺網格 (Cosmic Scale Spheres: 100 Mly, 1 Gly, 10 Gly, 46.5 Gly)
+  // 6. 宇宙距離標尺網格 (鈦灰/極細深空刻度，絕不喧賓奪主)
   buildCosmicScaleGrid() {
     this.gridGroup = new THREE.Group();
     const scales = [
-      { r: 100,  label: "1 億光年 (100 Mly - 拉尼亞凱亞尺度)" },
-      { r: 500,  label: "5 億光年 (500 Mly - 超星系團網絡)" },
-      { r: 2000, label: "20 億光年 (2 Gly - 深空場尺度)" },
-      { r: 6000, label: "60 億光年 (6 Gly - 宇宙加速膨脹期)" },
-      { r: 12000,label: "120 億光年 (12 Gly - 早期原初星系)" }
+      { r: 100,  label: "1 億光年 (100 Mly)" },
+      { r: 500,  label: "5 億光年 (500 Mly)" },
+      { r: 2000, label: "20 億光年 (2 Gly)" },
+      { r: 6000, label: "60 億光年 (6 Gly)" },
+      { r: 12000,label: "120 億光年 (12 Gly)" }
     ];
 
     scales.forEach(s => {
-      const ringGeo = new THREE.RingGeometry(s.r - 1.5, s.r + 1.5, 96);
+      const ringGeo = new THREE.RingGeometry(s.r - 1.2, s.r + 1.2, 96);
       const ringMat = new THREE.MeshBasicMaterial({
-        color: 0x38bdf8,
+        color: 0x64748b,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.18,
+        opacity: 0.14,
         depthWrite: false
       });
       const ring = new THREE.Mesh(ringGeo, ringMat);
@@ -382,7 +393,7 @@ class UniverseApp {
     this.scene.add(this.gridGroup);
   }
 
-  // 7. 互動地標標記 (Interactive Landmark Pins)
+  // 7. 互動地標標記 (簡約典雅星光標記)
   buildInteractiveLandmarks() {
     this.landmarkMarkers = [];
     this.markerGroup = new THREE.Group();
@@ -397,25 +408,25 @@ class UniverseApp {
       const marker = new THREE.Group();
       marker.position.set(item.coords.x, item.coords.y, item.coords.z);
 
-      // 光環標記
-      const ringGeo = new THREE.RingGeometry(6, 8, 32);
+      // 典雅星光光環
+      const ringGeo = new THREE.RingGeometry(5, 6.5, 32);
       const ringMat = new THREE.MeshBasicMaterial({
-        color: item.color || 0x38bdf8,
+        color: 0xfef3c7,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.85
+        opacity: 0.75
       });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.rotation.x = Math.PI / 2;
       marker.add(ring);
 
-      // 懸浮標籤 Canvas
+      // 懸浮文字標籤
       const canvas = document.createElement('canvas');
       canvas.width = 400;
       canvas.height = 76;
       const ctx = canvas.getContext('2d');
-      ctx.font = 'bold 24px "Inter", "Segoe UI", sans-serif';
-      ctx.fillStyle = item.color || '#38bdf8';
+      ctx.font = 'bold 22px "Inter", "Segoe UI", sans-serif';
+      ctx.fillStyle = '#fef3c7';
       ctx.textAlign = 'center';
       ctx.shadowColor = 'rgba(0,0,0,0.95)';
       ctx.shadowBlur = 6;
@@ -423,11 +434,10 @@ class UniverseApp {
 
       const labelTex = new THREE.CanvasTexture(canvas);
       const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false }));
-      labelSprite.scale.set(65, 12.3, 1);
-      labelSprite.position.set(0, 16, 0);
+      labelSprite.scale.set(60, 11.4, 1);
+      labelSprite.position.set(0, 14, 0);
       marker.add(labelSprite);
 
-      // 碰撞盒
       const hitGeo = new THREE.SphereGeometry(14, 16, 16);
       const hitMat = new THREE.MeshBasicMaterial({ visible: false });
       const hit = new THREE.Mesh(hitGeo, hitMat);
@@ -494,7 +504,6 @@ class UniverseApp {
   }
 
   initUIEventListeners() {
-    // 快捷導覽按鈕
     document.querySelectorAll('.univ-tour-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const id = e.currentTarget.dataset.id;
@@ -511,7 +520,6 @@ class UniverseApp {
       });
     });
 
-    // 圖層開關
     document.querySelectorAll('.univ-layer-cb').forEach(cb => {
       cb.addEventListener('change', (e) => {
         const layer = e.target.dataset.layer;
@@ -528,7 +536,6 @@ class UniverseApp {
       });
     });
 
-    // 關閉詳情
     const closeBtn = document.getElementById('close-univ-inspector');
     if (closeBtn) {
       closeBtn.addEventListener('click', () => {
@@ -540,13 +547,11 @@ class UniverseApp {
   animate() {
     requestAnimationFrame(() => this.animate());
 
-    // 宇宙大尺度緩慢旋轉
     if (!this.isPaused) {
       if (this.cosmicWebGroup) this.cosmicWebGroup.rotation.y += 0.00015;
       if (this.laniakeaGroup) this.laniakeaGroup.rotation.y += 0.0002;
     }
 
-    // 相機平滑插值
     if (this.cameraLerpTarget && this.controlsTargetLerp) {
       this.camera.position.lerp(this.cameraLerpTarget, 0.06);
       this.controls.target.lerp(this.controlsTargetLerp, 0.06);

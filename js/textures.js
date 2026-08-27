@@ -704,47 +704,36 @@ class TextureGenerator {
   /**
    * 宇宙星空深空全景背景
    */
+  /**
+   * 建立真實深空背景星空貼圖 (Real Deep Space Starfield Texture)
+   * 徹底杜絕人造藍紫色薄霧，呈現極致純淨的深空黑夜與微晶星芒
+   */
   static createStarfieldTexture(size = 2048) {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
-    ctx.fillStyle = '#020409';
+    // 極致純黑深空
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, size, size);
 
-    // 璀璨星點
-    for (let i = 0; i < 3000; i++) {
+    // 4,000 顆自然黑體輻射星光 (白、溫白、暖金、暗紅)
+    for (let i = 0; i < 4000; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
-      const r = Math.random() * 1.5 + 0.3;
+      const r = Math.random() * 1.3 + 0.25;
       const brightness = Math.random();
 
       let color = '255, 255, 255';
-      if (brightness > 0.85) color = '180, 220, 255'; // 藍巨星
-      else if (brightness > 0.70) color = '255, 220, 160'; // 黃巨星
-      else if (brightness > 0.55) color = '255, 170, 170'; // 紅巨星
+      if (brightness > 0.85) color = '255, 255, 255';       // 純白
+      else if (brightness > 0.65) color = '255, 248, 235';  // 暖白
+      else if (brightness > 0.45) color = '255, 235, 190';  // 金黃
+      else color = '255, 210, 170';                         // 暖橙
 
-      ctx.fillStyle = `rgba(${color}, ${Math.random() * 0.8 + 0.2})`;
+      ctx.fillStyle = `rgba(${color}, ${Math.random() * 0.85 + 0.15})`;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // 銀河星雲色彩 (Nebula Clouds)
-    for (let i = 0; i < 8; i++) {
-      const cx = Math.random() * size;
-      const cy = Math.random() * size;
-      const radius = Math.random() * 400 + 200;
-      const nebGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      const hues = ['30, 80, 160', '80, 30, 120', '120, 50, 80', '20, 90, 110'];
-      const hue = hues[i % hues.length];
-      nebGrad.addColorStop(0, `rgba(${hue}, 0.12)`);
-      nebGrad.addColorStop(0.5, `rgba(${hue}, 0.05)`);
-      nebGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = nebGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.fill();
     }
 

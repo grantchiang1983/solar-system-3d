@@ -134,29 +134,29 @@ class SolarScene {
   }
 
   setupLighting() {
-    // 1. 太陽全向核心光源
-    const sunLight = new THREE.PointLight(0xfffaed, 3.8, 4000, 0.3);
+    // 1. 太陽全向核心光源 (全向無衰減太陽光，確保從水星到冥王星所有行星日夜受光面 100% 精確指向太陽)
+    const sunLight = new THREE.PointLight(0xfffef5, 3.6, 0, 0);
     sunLight.position.set(0, 0, 0);
     this.scene.add(sunLight);
 
-    // 2. 地月系統專屬高精度陽光 (負責日食/月食/晨昏線陰影投射)
-    this.earthSunLight = new THREE.DirectionalLight(0xfffdf5, 2.5);
+    // 2. 地月系統專屬高精度陽光 (負責地月日食/月食/晨昏線陰影投射)
+    this.earthSunLight = new THREE.DirectionalLight(0xfffdf5, 2.2);
     this.earthSunLight.castShadow = true;
     this.earthSunLight.shadow.mapSize.width = 2048;
     this.earthSunLight.shadow.mapSize.height = 2048;
     this.earthSunLight.shadow.camera.near = 0.5;
     this.earthSunLight.shadow.camera.far = 150;
-    this.earthSunLight.shadow.camera.left = -12;
-    this.earthSunLight.shadow.camera.right = 12;
-    this.earthSunLight.shadow.camera.top = 12;
-    this.earthSunLight.shadow.camera.bottom = -12;
+    this.earthSunLight.shadow.camera.left = -14;
+    this.earthSunLight.shadow.camera.right = 14;
+    this.earthSunLight.shadow.camera.top = 14;
+    this.earthSunLight.shadow.camera.bottom = -14;
     this.earthSunLight.shadow.bias = -0.0002;
     this.earthSunLight.shadow.radius = 1.5;
     this.scene.add(this.earthSunLight);
     this.scene.add(this.earthSunLight.target);
 
-    // 3. 柔和深空環境光 (確保背光面地表清晰可辨)
-    const ambientLight = new THREE.AmbientLight(0x323f54, 0.75);
+    // 3. 柔和深空環境光 (確保背光面地表呈現深邃太空星光底色，非死黑亦不過亮)
+    const ambientLight = new THREE.AmbientLight(0x222c3d, 0.40);
     this.scene.add(ambientLight);
   }
 
@@ -294,6 +294,7 @@ class SolarScene {
     let mat;
 
     // 專為地球設定極致擬真材質 (NASA 官方 2K 晝夜切換 + 城市燈火 + 法線高程 + 海洋鏡面反光)
+    // 嚴格依據世界座標日心方向 (-vWorldPosition) 運算，陽光面永遠 100% 朝向太陽，背光面呈現黑夜城市燈火
     if (data.id === 'earth') {
       const earthDayTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthDay)
         ? texLoader.load(NASA_TEXTURES.earthDay)
@@ -311,7 +312,6 @@ class SolarScene {
         ? texLoader.load(NASA_TEXTURES.earthSpec)
         : null;
 
-      // 使用高階自定義著色器混合 NASA 白晝地表、海洋反射、夜間城市燈火與晨昏金紅霞光
       const customEarthMat = new THREE.ShaderMaterial({
         uniforms: {
           dayTexture: { value: earthDayTex },
@@ -321,16 +321,17 @@ class SolarScene {
         },
         vertexShader: `
           varying vec2 vUv;
-          varying vec3 vNormal;
+          varying vec3 vWorldNormal;
           varying vec3 vWorldPosition;
           varying vec3 vViewPosition;
 
           void main() {
             vUv = uv;
-            vNormal = normalize(normalMatrix * normal);
-            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-            vWorldPosition = worldPosition.xyz;
-            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            vec4 worldPos = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = worldPos.xyz;
+            // 計算世界座標法向量（精確隨地球自轉與軌道公轉旋轉）
+            vWorldNormal = normalize(mat3(modelMatrix) * normal);
+            vec4 mvPosition = viewMatrix * worldPos;
             vViewPosition = -mvPosition.xyz;
             gl_Position = projectionMatrix * mvPosition;
           }
@@ -341,36 +342,43 @@ class SolarScene {
           uniform sampler2D specularTexture;
 
           varying vec2 vUv;
-          varying vec3 vNormal;
+          varying vec3 vWorldNormal;
           varying vec3 vWorldPosition;
           varying vec3 vViewPosition;
 
           void main() {
-            vec3 norm = normalize(vNormal);
-            vec3 lightDir = normalize(-vWorldPosition); // 陽光來自太陽原點 (0,0,0)
-            float sunDot = dot(norm, lightDir);
+            vec3 worldNorm = normalize(vWorldNormal);
+            // 太陽位於世界座標原點 (0, 0, 0)，從地表指向太陽之真陽光方向向量
+            vec3 lightDir = normalize(-vWorldPosition);
+            float sunDot = dot(worldNorm, lightDir);
 
             vec4 dayColor = texture2D(dayTexture, vUv);
             vec4 nightColor = texture2D(nightTexture, vUv);
             vec4 specColor = texture2D(specularTexture, vUv);
 
-            // 鏡面海面高光 (Ocean Glint)
+            // 鏡面海面高光 (Ocean Glint) - 僅在面對太陽之白晝半球且有海洋反光處呈現
             vec3 viewDir = normalize(vViewPosition);
-            vec3 halfVector = normalize(lightDir + viewDir);
-            float specFactor = pow(max(dot(norm, halfVector), 0.0), 28.0) * specColor.r * 2.0;
+            vec3 viewNormal = normalize((viewMatrix * vec4(worldNorm, 0.0)).xyz);
+            vec3 viewLightDir = normalize((viewMatrix * vec4(lightDir, 0.0)).xyz);
+            vec3 halfVector = normalize(viewLightDir + viewDir);
+            float specFactor = pow(max(dot(viewNormal, halfVector), 0.0), 32.0) * specColor.r * 2.2;
             vec3 oceanGlint = vec3(1.0, 0.96, 0.88) * specFactor * max(sunDot, 0.0);
 
             // 晨昏線平滑混合 (Terminator blending)
-            float dayFactor = smoothstep(-0.12, 0.22, sunDot);
-            float twilight = exp(-pow((sunDot - 0.04) / 0.14, 2.0));
-            vec3 sunsetColor = vec3(1.0, 0.42, 0.08) * twilight * 0.4;
+            float dayFactor = smoothstep(-0.06, 0.18, sunDot);
+            
+            // 晨昏大氣霞光 (Twilight gold/crimson along terminator)
+            float twilight = exp(-pow(sunDot / 0.12, 2.0)) * max(sunDot + 0.15, 0.0);
+            vec3 sunsetColor = vec3(1.0, 0.45, 0.10) * twilight * 0.45;
 
-            // 晝夜混合 (夜面顯示璀璨城市燈火)
-            vec3 finalColor = mix(nightColor.rgb * 1.8, dayColor.rgb, dayFactor);
-            finalColor += oceanGlint + sunsetColor;
+            // 晝夜混合 (夜面顯示璀璨城市燈火，白晝顯示豐富地貌)
+            vec3 nightSurface = nightColor.rgb * 2.0 * (1.0 - dayFactor);
+            vec3 daySurface = dayColor.rgb * max(sunDot, 0.0);
+            
+            // 太空微光環境底色
+            vec3 ambient = dayColor.rgb * 0.04;
 
-            // 深空環境底色
-            finalColor += dayColor.rgb * 0.12;
+            vec3 finalColor = daySurface + nightSurface + oceanGlint + sunsetColor + ambient;
 
             gl_FragColor = vec4(finalColor, 1.0);
           }
@@ -378,7 +386,7 @@ class SolarScene {
       });
       mat = customEarthMat;
     } else {
-      // 載入 NASA 2K 官方最高等級材質 (含程序化引擎 Fallback)
+      // 載入 NASA 2K 官方最高等級材質
       let pTex;
       let bumpTex = null;
       let bScale = 0.0;
@@ -455,60 +463,101 @@ class SolarScene {
     const radius = data.visualRadius;
     const geo = new THREE.SphereGeometry(radius, 64, 64);
     const planetMesh = new THREE.Mesh(geo, mat);
-    planetMesh.castShadow = true;
-    planetMesh.receiveShadow = true;
+    // 僅地月系統參與局部陰影投射，其餘行星不受地月陰影框干擾，日夜受光 100% 正確
+    planetMesh.castShadow = (data.id === 'earth');
+    planetMesh.receiveShadow = (data.id === 'earth');
     planetMesh.userData = { id: data.id, name: data.zhName };
 
     // 設定自轉軸傾角 (Axial Tilt)
     planetMesh.rotation.z = THREE.MathUtils.degToRad(data.axialTiltDeg || 0);
     planetGroup.add(planetMesh);
 
-    // 各大行星專屬大氣層瑞利散射光暈 (Atmospheric Rayleigh Scattering Halos)
+    // 各大行星專屬日向散射大氣層 (Sun-Oriented Rayleigh Atmospheric Halos)
+    // 僅在受日照半球邊緣 (Limb) 產生散射輝光，背光面自然暗沉，徹底杜絕背光側假亮光暈
     if (['venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'].includes(data.id)) {
-      let atmosColor = 0x88c4ff;
+      let atmosColor = new THREE.Color(0x88c4ff);
       let atmosScale = 1.08;
-      let atmosOpacity = 0.25;
+      let atmosOpacity = 0.45;
 
       switch (data.id) {
         case 'venus':
-          atmosColor = 0xffc862; // 金黃大氣
+          atmosColor = new THREE.Color(0xffc862); // 金黃濃密大氣
           atmosScale = 1.10;
-          atmosOpacity = 0.40;
+          atmosOpacity = 0.65;
           break;
         case 'mars':
-          atmosColor = 0xef9a9a; // 赭紅稀薄塵埃
+          atmosColor = new THREE.Color(0xef9a9a); // 赭紅稀薄塵埃
           atmosScale = 1.05;
-          atmosOpacity = 0.22;
-          break;
-        case 'jupiter':
-          atmosColor = 0xe0a96d; // 氣態巨星暖光
-          atmosScale = 1.06;
-          atmosOpacity = 0.25;
-          break;
-        case 'saturn':
-          atmosColor = 0xf5d491; // 金黃大氣
-          atmosScale = 1.06;
-          atmosOpacity = 0.25;
-          break;
-        case 'uranus':
-          atmosColor = 0x7be3f6; // 甲烷青碧
-          atmosScale = 1.08;
           atmosOpacity = 0.35;
           break;
-        case 'neptune':
-          atmosColor = 0x4d88ff; // 湛藍深空
+        case 'jupiter':
+          atmosColor = new THREE.Color(0xe0a96d); // 氣態巨星暖光
+          atmosScale = 1.06;
+          atmosOpacity = 0.40;
+          break;
+        case 'saturn':
+          atmosColor = new THREE.Color(0xf5d491); // 金黃大氣
+          atmosScale = 1.06;
+          atmosOpacity = 0.40;
+          break;
+        case 'uranus':
+          atmosColor = new THREE.Color(0x7be3f6); // 甲烷青碧
           atmosScale = 1.08;
-          atmosOpacity = 0.38;
+          atmosOpacity = 0.50;
+          break;
+        case 'neptune':
+          atmosColor = new THREE.Color(0x4d88ff); // 湛藍深空
+          atmosScale = 1.08;
+          atmosOpacity = 0.55;
           break;
       }
 
-      const atmosGeo = new THREE.SphereGeometry(radius * atmosScale, 32, 32);
-      const atmosMat = new THREE.MeshBasicMaterial({
-        color: atmosColor,
+      const atmosGeo = new THREE.SphereGeometry(radius * atmosScale, 48, 48);
+      const atmosMat = new THREE.ShaderMaterial({
+        uniforms: {
+          atmosColor: { value: atmosColor },
+          baseOpacity: { value: atmosOpacity }
+        },
+        vertexShader: `
+          varying vec3 vWorldNormal;
+          varying vec3 vWorldPosition;
+          varying vec3 vViewPosition;
+          void main() {
+            vec4 worldPos = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = worldPos.xyz;
+            vWorldNormal = normalize(mat3(modelMatrix) * normal);
+            vec4 mvPosition = viewMatrix * worldPos;
+            vViewPosition = -mvPosition.xyz;
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 atmosColor;
+          uniform float baseOpacity;
+          varying vec3 vWorldNormal;
+          varying vec3 vWorldPosition;
+          varying vec3 vViewPosition;
+          void main() {
+            vec3 worldNorm = normalize(vWorldNormal);
+            vec3 lightDir = normalize(-vWorldPosition);
+            float sunDot = dot(worldNorm, lightDir);
+            
+            vec3 viewDir = normalize(vViewPosition);
+            vec3 viewNormal = normalize((viewMatrix * vec4(worldNorm, 0.0)).xyz);
+            
+            // 邊緣掠射散射 (Grazing Limb Scattering)
+            float rim = 1.0 - max(dot(viewNormal, viewDir), 0.0);
+            float intensity = pow(rim, 2.6);
+            
+            // 僅在向陽半球及晨昏線發光
+            float sunFactor = smoothstep(-0.20, 0.30, sunDot);
+            
+            gl_FragColor = vec4(atmosColor, intensity * sunFactor * baseOpacity);
+          }
+        `,
+        blending: THREE.AdditiveBlending,
         side: THREE.BackSide,
         transparent: true,
-        opacity: atmosOpacity,
-        blending: THREE.AdditiveBlending,
         depthWrite: false
       });
       const atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
@@ -517,58 +566,100 @@ class SolarScene {
 
     // 地球特有大氣雲層、瑞利散射光暈與月球系統
     if (data.id === 'earth') {
-      // 1. 地球大氣雲層 (真實 NASA 雲圖 + 投影陰影，depthWrite: false 杜絕黑斑遮蔽)
+      // 1. 地球大氣雲層 (日夜精確受光著色器：白晝雪白反光，黑夜半透明透出城市燈火)
       const cloudTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.earthClouds)
         ? texLoader.load(NASA_TEXTURES.earthClouds)
         : TextureGenerator.createEarthCloudsTexture();
 
       const cloudGeo = new THREE.SphereGeometry(radius * 1.018, 64, 64);
-      const cloudMat = new THREE.MeshStandardMaterial({
-        map: cloudTex,
+      const cloudMat = new THREE.ShaderMaterial({
+        uniforms: {
+          cloudTexture: { value: cloudTex }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          varying vec3 vWorldNormal;
+          varying vec3 vWorldPosition;
+          void main() {
+            vUv = uv;
+            vec4 worldPos = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = worldPos.xyz;
+            vWorldNormal = normalize(mat3(modelMatrix) * normal);
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D cloudTexture;
+          varying vec2 vUv;
+          varying vec3 vWorldNormal;
+          varying vec3 vWorldPosition;
+          void main() {
+            vec4 tex = texture2D(cloudTexture, vUv);
+            vec3 worldNorm = normalize(vWorldNormal);
+            vec3 lightDir = normalize(-vWorldPosition);
+            float sunDot = dot(worldNorm, lightDir);
+            
+            float dayFactor = smoothstep(-0.08, 0.22, sunDot);
+            vec3 dayColor = vec3(1.0, 1.0, 1.0) * (0.35 + 0.65 * max(sunDot, 0.0));
+            vec3 nightColor = vec3(0.04, 0.06, 0.10);
+            vec3 finalColor = mix(nightColor, dayColor, dayFactor);
+            
+            float alpha = tex.r * mix(0.35, 0.88, dayFactor);
+            gl_FragColor = vec4(finalColor, alpha);
+          }
+        `,
         transparent: true,
-        opacity: 0.88,
-        depthWrite: false, // 防止遮蔽內部地表
-        blending: THREE.NormalBlending,
-        roughness: 0.95
+        depthWrite: false,
+        blending: THREE.NormalBlending
       });
       this.earthClouds = new THREE.Mesh(cloudGeo, cloudMat);
-      this.earthClouds.castShadow = true;
-      this.earthClouds.receiveShadow = false;
       planetMesh.add(this.earthClouds);
 
-      // 2. 瑞利散射大氣發光層 (Atmospheric Rayleigh Scattering Glow)
-      const atmosVertexShader = `
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `;
-      const atmosFragmentShader = `
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        void main() {
-          vec3 viewDir = normalize(-vPosition);
-          float intensity = pow(0.65 - dot(vNormal, viewDir), 2.2);
-          vec3 glowColor = vec3(0.28, 0.65, 1.0);
-          gl_FragColor = vec4(glowColor, clamp(intensity * 0.9, 0.0, 1.0));
-        }
-      `;
+      // 2. 瑞利散射大氣發光層 (日向精確散射)
       const atmosGeo = new THREE.SphereGeometry(radius * 1.12, 48, 48);
       const atmosMat = new THREE.ShaderMaterial({
-        vertexShader: atmosVertexShader,
-        fragmentShader: atmosFragmentShader,
+        vertexShader: `
+          varying vec3 vWorldNormal;
+          varying vec3 vWorldPosition;
+          varying vec3 vViewPosition;
+          void main() {
+            vec4 worldPos = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = worldPos.xyz;
+            vWorldNormal = normalize(mat3(modelMatrix) * normal);
+            vec4 mvPosition = viewMatrix * worldPos;
+            vViewPosition = -mvPosition.xyz;
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vWorldNormal;
+          varying vec3 vWorldPosition;
+          varying vec3 vViewPosition;
+          void main() {
+            vec3 worldNorm = normalize(vWorldNormal);
+            vec3 lightDir = normalize(-vWorldPosition);
+            float sunDot = dot(worldNorm, lightDir);
+            
+            vec3 viewDir = normalize(vViewPosition);
+            vec3 viewNormal = normalize((viewMatrix * vec4(worldNorm, 0.0)).xyz);
+            
+            float rim = 1.0 - max(dot(viewNormal, viewDir), 0.0);
+            float intensity = pow(rim, 2.5);
+            float sunFactor = smoothstep(-0.20, 0.30, sunDot);
+            
+            vec3 glowColor = vec3(0.32, 0.68, 1.0);
+            gl_FragColor = vec4(glowColor, intensity * sunFactor * 0.85);
+          }
+        `,
         blending: THREE.AdditiveBlending,
         side: THREE.BackSide,
         transparent: true,
-        depthWrite: false // 防止遮蔽
+        depthWrite: false
       });
       this.earthAtmosphere = new THREE.Mesh(atmosGeo, atmosMat);
       planetMesh.add(this.earthAtmosphere);
 
-      // 3. 月球本體 (真實 NASA 紋理 + 高精度凹凸陰影 + 接收與投射月食/日食陰影)
+      // 3. 月球本體 (真實 NASA 紋理 + 凹凸陰影 + 接收與投射月食/日食陰影)
       const moonData = data.moon;
       const moonTex = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.moonDay)
         ? texLoader.load(NASA_TEXTURES.moonDay)
@@ -1035,88 +1126,158 @@ class SolarScene {
   }
 
   /**
-   * 建立銀河系宏觀 3D 旋臂粒子系統與銀心核球 (Milky Way Galaxy)
+   * 建立超擬真銀河系 3D 立體棒旋星系 (Photorealistic Milky Way Galaxy)
+   * 多層渲染架構：
+   *   Layer 1 — 40,000 顆螺旋臂粒子 (依真實 4+1 臂結構 + 碎形擾動 + 光譜色分佈)
+   *   Layer 2 — 4K 棒旋星系盤面紋理 (主盤 + 上下偏移體積層)
+   *   Layer 3 — 銀心核球 3D 橢球體 (雙層漸層 + 內發光)
+   *   Layer 4 — 15,000 顆球狀星暈粒子 (恆星暈 Stellar Halo)
+   *   Layer 5 — 太陽系定位標記
    */
   createMilkyWayGalaxy() {
     this.milkyWayGroup = new THREE.Group();
 
-    // 1. 銀河系 22,000 顆旋臂粒子系統
-    const particleCount = 22000;
-    const geo = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-
-    const colorCore = new THREE.Color(0xfff5d0);   // 銀心亮金核
-    const colorMid = new THREE.Color(0xa855f7);    // 旋臂紫色星雲
-    const colorArm = new THREE.Color(0x38bdf8);    // 旋臂藍色恆星帶
-    const colorDust = new THREE.Color(0xf43f5e);   // 電離氫氣 HII 區域
-
-    const arms = 4;
     const galaxyRadius = 2200;
+    const starSpriteTex = TextureGenerator.createStarSpriteTexture();
 
-    for (let i = 0; i < particleCount; i++) {
-      const radius = Math.pow(Math.random(), 1.4) * galaxyRadius;
-      const spinAngle = radius * 0.0028;
-      const armAngle = ((i % arms) * 2 * Math.PI) / arms;
+    // ═══════════════════════════════════════════════════════════════
+    // Layer 1 — 40,000 顆旋臂恆星粒子 (Spiral Arm Stellar Particles)
+    // 5 條真實命名螺旋臂，各自擁有獨特旋距 (pitch angle) 與色溫
+    // ═══════════════════════════════════════════════════════════════
+    const armDefs = [
+      { name: 'Scutum-Centaurus', offset: 0,              pitch: 0.0028, color: [255, 240, 210] },
+      { name: 'Perseus',          offset: Math.PI / 2,     pitch: 0.0030, color: [200, 220, 255] },
+      { name: 'Sagittarius',      offset: Math.PI,         pitch: 0.0026, color: [220, 230, 255] },
+      { name: 'Norma-Outer',      offset: Math.PI * 1.5,   pitch: 0.0032, color: [190, 210, 245] },
+      { name: 'Orion Spur',       offset: Math.PI * 0.85,  pitch: 0.0022, color: [230, 240, 255] }
+    ];
 
-      // 旋臂幾何擾動
-      const spread = (radius / galaxyRadius) * 220 + 30;
-      const randomX = (Math.random() - 0.5) * spread;
-      const randomY = (Math.random() - 0.5) * (180 * Math.exp(-radius / 600) + 25);
-      const randomZ = (Math.random() - 0.5) * spread;
+    const totalParticles = 40000;
+    const perArm = Math.floor(totalParticles / armDefs.length);
+    const totalCount = perArm * armDefs.length;
 
-      const x = Math.cos(armAngle + spinAngle) * radius + randomX;
-      const y = randomY;
-      const z = Math.sin(armAngle + spinAngle) * radius + randomZ;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(totalCount * 3);
+    const colors = new Float32Array(totalCount * 3);
+    const sizes = new Float32Array(totalCount);
 
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
+    let idx = 0;
+    armDefs.forEach(arm => {
+      for (let i = 0; i < perArm; i++) {
+        const radius = Math.pow(Math.random(), 1.3) * galaxyRadius;
+        const spinAngle = radius * arm.pitch;
 
-      // 粒子顏色依核心到外緣漸層
-      const mixCol = colorCore.clone();
-      if (radius < galaxyRadius * 0.25) {
-        mixCol.lerp(colorMid, radius / (galaxyRadius * 0.25));
-      } else if (radius < galaxyRadius * 0.65) {
-        mixCol.lerp(colorArm, (radius - galaxyRadius * 0.25) / (galaxyRadius * 0.4));
-      } else {
-        mixCol.lerp(colorDust, (radius - galaxyRadius * 0.65) / (galaxyRadius * 0.35));
+        // 3 層碎形擾動
+        const f1 = Math.sin(i * 0.07 + arm.offset) * 35 * (1 - radius / galaxyRadius);
+        const f2 = Math.sin(i * 0.21 + 1.5) * 18;
+        const f3 = Math.sin(i * 0.53 + 3.7) * 8;
+        const spread = (radius / galaxyRadius) * 180 + 25 + f1 + f2 + f3;
+
+        const randomX = (Math.random() - 0.5) * spread;
+        // 銀盤厚度 sech² 分佈：核心厚、外緣薄
+        const scaleHeight = 160 * Math.exp(-radius / 550) + 20;
+        const randomY = (Math.random() - 0.5) * scaleHeight * (1 + 0.5 * Math.exp(-radius / 200));
+        const randomZ = (Math.random() - 0.5) * spread;
+
+        const x = Math.cos(arm.offset + spinAngle) * radius + randomX;
+        const y = randomY;
+        const z = Math.sin(arm.offset + spinAngle) * radius + randomZ;
+
+        positions[idx * 3] = x;
+        positions[idx * 3 + 1] = y;
+        positions[idx * 3 + 2] = z;
+
+        // 光譜色漸層：核心金白 → 中段臂色 → 外緣冰藍
+        const t = radius / galaxyRadius;
+        let r, g, b;
+        if (t < 0.15) {
+          // 核心區 — 老年恆星金白
+          r = 1.0;
+          g = 0.95 + Math.random() * 0.05;
+          b = 0.82 + Math.random() * 0.08;
+        } else if (t < 0.55) {
+          // 中段 — 旋臂色
+          const mix = (t - 0.15) / 0.4;
+          r = (255 * (1 - mix) + arm.color[0] * mix) / 255;
+          g = (245 * (1 - mix) + arm.color[1] * mix) / 255;
+          b = (210 * (1 - mix) + arm.color[2] * mix) / 255;
+        } else {
+          // 外緣 — 冰藍年輕恆星
+          r = 0.55 + Math.random() * 0.2;
+          g = 0.70 + Math.random() * 0.15;
+          b = 0.90 + Math.random() * 0.1;
+        }
+
+        // 隨機 HII 區域粉紅散點 (3%)
+        if (Math.random() < 0.03 && t > 0.2) {
+          r = 0.92 + Math.random() * 0.08;
+          g = 0.35 + Math.random() * 0.2;
+          b = 0.50 + Math.random() * 0.2;
+        }
+
+        colors[idx * 3] = r;
+        colors[idx * 3 + 1] = g;
+        colors[idx * 3 + 2] = b;
+
+        // 距離衰減尺寸：核心亮大 → 外緣暗小
+        sizes[idx] = (1 - t * 0.6) * (5.5 + Math.random() * 4.5);
+
+        idx++;
       }
-
-      colors[i * 3] = mixCol.r;
-      colors[i * 3 + 1] = mixCol.g;
-      colors[i * 3 + 2] = mixCol.b;
-    }
+    });
 
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
-    // 使用極致柔和高斯光暈圓形星點貼圖 (Star Sprite)，徹底消除方塊點精靈瑕疵
-    const starSpriteTex = TextureGenerator.createStarSpriteTexture();
-    const mat = new THREE.PointsMaterial({
-      size: 7.5,
-      map: starSpriteTex,
-      sizeAttenuation: true,
-      depthWrite: false,
+    // 自定義 ShaderMaterial — 支援 per-particle 大小 + 柔和光暈
+    const armMat = new THREE.ShaderMaterial({
+      uniforms: {
+        starTexture: { value: starSpriteTex }
+      },
+      vertexShader: `
+        attribute float size;
+        varying vec3 vColor;
+        void main() {
+          vColor = color;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * (350.0 / -mvPosition.z);
+          gl_PointSize = clamp(gl_PointSize, 1.0, 24.0);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D starTexture;
+        varying vec3 vColor;
+        void main() {
+          vec4 texColor = texture2D(starTexture, gl_PointCoord);
+          gl_FragColor = vec4(vColor, 1.0) * texColor;
+          if (gl_FragColor.a < 0.01) discard;
+        }
+      `,
       blending: THREE.AdditiveBlending,
-      vertexColors: true,
+      depthWrite: false,
       transparent: true,
-      opacity: 0.92
+      vertexColors: true
     });
 
-    const galaxyPoints = new THREE.Points(geo, mat);
+    const galaxyPoints = new THREE.Points(geo, armMat);
     this.milkyWayGroup.add(galaxyPoints);
 
-    // 2. 4K 超高解析度銀河系棒旋星盤 (Continuous 4K Barred Spiral Galactic Disc)
+    // ═══════════════════════════════════════════════════════════════
+    // Layer 2 — 4K 棒旋星系連續盤面紋理 (Multi-Layer Volumetric Disc)
+    // 主盤 + 上下 3 層偏移層，模擬銀盤立體厚度
+    // ═══════════════════════════════════════════════════════════════
     const mwDiskTex = TextureGenerator.createMilkyWayDiskTexture(4096);
-    const mwDiskGeo = new THREE.PlaneGeometry(galaxyRadius * 2.2, galaxyRadius * 2.2);
-    
-    // 主盤面 (Primary Disc)
+    const diskSize = galaxyRadius * 2.2;
+    const mwDiskGeo = new THREE.PlaneGeometry(diskSize, diskSize);
+
+    // 主盤面
     const mwDiskMat = new THREE.MeshBasicMaterial({
       map: mwDiskTex,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.80,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -1124,41 +1285,104 @@ class SolarScene {
     mwDiskMesh.rotation.x = -Math.PI / 2;
     this.milkyWayGroup.add(mwDiskMesh);
 
-    // 上下雙層立體星際雲氣 (Volumetric Upper/Lower Gaseous Halo Discs)
-    const upperHaloMat = new THREE.MeshBasicMaterial({
-      map: mwDiskTex,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.35,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+    // 上下多層立體氣體暈 (Volumetric Gaseous Halo Layers)
+    const haloOffsets = [
+      { y:  10, opacity: 0.35, scale: 1.015 },
+      { y: -10, opacity: 0.35, scale: 1.015 },
+      { y:  22, opacity: 0.18, scale: 1.03  },
+      { y: -22, opacity: 0.18, scale: 1.03  },
+      { y:  38, opacity: 0.08, scale: 1.05  },
+      { y: -38, opacity: 0.08, scale: 1.05  }
+    ];
+    haloOffsets.forEach(h => {
+      const hMat = new THREE.MeshBasicMaterial({
+        map: mwDiskTex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: h.opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const hMesh = new THREE.Mesh(mwDiskGeo, hMat);
+      hMesh.rotation.x = -Math.PI / 2;
+      hMesh.position.y = h.y;
+      hMesh.scale.set(h.scale, h.scale, h.scale);
+      this.milkyWayGroup.add(hMesh);
     });
-    const upperHaloMesh = new THREE.Mesh(mwDiskGeo, upperHaloMat);
-    upperHaloMesh.rotation.x = -Math.PI / 2;
-    upperHaloMesh.position.y = 12;
-    upperHaloMesh.scale.set(1.02, 1.02, 1.02);
-    this.milkyWayGroup.add(upperHaloMesh);
 
-    const lowerHaloMesh = new THREE.Mesh(mwDiskGeo, upperHaloMat);
-    lowerHaloMesh.rotation.x = -Math.PI / 2;
-    lowerHaloMesh.position.y = -12;
-    lowerHaloMesh.scale.set(1.02, 1.02, 1.02);
-    this.milkyWayGroup.add(lowerHaloMesh);
-
-    // 3. 銀心超亮核球 (Galactic Bulge - 位於銀心 (0, 0, 0) 本地座標，即世界座標 z = -1400 人馬座 A* 處)
-    const bulgeGeo = new THREE.SphereGeometry(95, 32, 32);
-    const bulgeMat = new THREE.MeshBasicMaterial({
+    // ═══════════════════════════════════════════════════════════════
+    // Layer 3 — 銀心核球 3D 橢球體 (Galactic Bulge Ellipsoid)
+    // 雙層：外層暖金柔光暈 + 內層白熱核心
+    // ═══════════════════════════════════════════════════════════════
+    // 外層核球暈
+    const bulgeOuterGeo = new THREE.SphereGeometry(110, 48, 48);
+    const bulgeOuterMat = new THREE.MeshBasicMaterial({
       color: 0xffedd5,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.55,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
-    const bulge = new THREE.Mesh(bulgeGeo, bulgeMat);
-    bulge.position.set(0, 0, 0);
-    this.milkyWayGroup.add(bulge);
+    const bulgeOuter = new THREE.Mesh(bulgeOuterGeo, bulgeOuterMat);
+    bulgeOuter.scale.set(1.0, 0.45, 1.0); // 扁橢球形，模擬真實核球扁率
+    this.milkyWayGroup.add(bulgeOuter);
 
-    // 4. 太陽系在銀河系獵戶臂上的定位圈標記 (位於本地座標 (0, 0, 1400)，即世界座標太陽系 (0,0,0) 處)
+    // 內層白熱核心
+    const bulgeInnerGeo = new THREE.SphereGeometry(50, 32, 32);
+    const bulgeInnerMat = new THREE.MeshBasicMaterial({
+      color: 0xfffff5,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const bulgeInner = new THREE.Mesh(bulgeInnerGeo, bulgeInnerMat);
+    bulgeInner.scale.set(1.0, 0.4, 1.0);
+    this.milkyWayGroup.add(bulgeInner);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Layer 4 — 球狀星暈 (Stellar Halo) — 15,000 顆微弱星點
+    // 模擬銀暈中散佈的球狀星團老年恆星
+    // ═══════════════════════════════════════════════════════════════
+    const haloCount = 15000;
+    const haloGeo = new THREE.BufferGeometry();
+    const haloPos = new Float32Array(haloCount * 3);
+    const haloCol = new Float32Array(haloCount * 3);
+
+    for (let i = 0; i < haloCount; i++) {
+      // 球對稱均勻分佈
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = Math.pow(Math.random(), 0.6) * galaxyRadius * 1.2;
+      haloPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      haloPos[i * 3 + 1] = r * Math.cos(phi) * 0.5; // 扁球暈
+      haloPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+      // 老年恆星：暖金/橙/紅
+      const warmth = Math.random();
+      haloCol[i * 3] = 0.85 + warmth * 0.15;
+      haloCol[i * 3 + 1] = 0.70 + warmth * 0.15;
+      haloCol[i * 3 + 2] = 0.50 + warmth * 0.15;
+    }
+    haloGeo.setAttribute('position', new THREE.BufferAttribute(haloPos, 3));
+    haloGeo.setAttribute('color', new THREE.BufferAttribute(haloCol, 3));
+
+    const haloMat = new THREE.PointsMaterial({
+      size: 3.5,
+      map: starSpriteTex,
+      sizeAttenuation: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.35
+    });
+    const haloPoints = new THREE.Points(haloGeo, haloMat);
+    this.milkyWayGroup.add(haloPoints);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Layer 5 — 太陽系定位圈與標籤 (Solar System Beacon)
+    // ═══════════════════════════════════════════════════════════════
     const sunBeaconGeo = new THREE.RingGeometry(24, 30, 48);
     const sunBeaconMat = new THREE.MeshBasicMaterial({
       color: 0x00f2fe,
@@ -1170,6 +1394,21 @@ class SolarScene {
     sunBeacon.rotation.x = Math.PI / 2;
     sunBeacon.position.set(0, 0, 1400);
     this.milkyWayGroup.add(sunBeacon);
+
+    // 脈動光環效果
+    const sunPulseGeo = new THREE.RingGeometry(30, 35, 48);
+    const sunPulseMat = new THREE.MeshBasicMaterial({
+      color: 0x00f2fe,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    this.sunPulseRing = new THREE.Mesh(sunPulseGeo, sunPulseMat);
+    this.sunPulseRing.rotation.x = Math.PI / 2;
+    this.sunPulseRing.position.set(0, 0, 1400);
+    this.milkyWayGroup.add(this.sunPulseRing);
 
     // 太陽系位置標籤
     const sunLabelCanvas = document.createElement('canvas');
@@ -1189,8 +1428,7 @@ class SolarScene {
     sunLabelSprite.position.set(0, 35, 1400);
     this.milkyWayGroup.add(sunLabelSprite);
 
-    // 將整個銀河系群組的世界中心定位在銀心 (z = -1400 人馬座 A* 超大質量黑洞處)
-    // 使得銀河系的自轉完全圍繞銀心旋轉，而非圍繞太陽！
+    // 將整個銀河系群組世界中心定位在銀心 (z = -1400)
     this.milkyWayGroup.position.set(0, 0, -1400);
     this.scene.add(this.milkyWayGroup);
   }

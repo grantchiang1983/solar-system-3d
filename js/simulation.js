@@ -184,12 +184,17 @@ class SolarSimulation {
 
         const a_AU = comet.semiMajorAxisAU;
         const e = comet.eccentricity;
-        const periodDays = comet.orbitalPeriodYears * 365.25;
+        const effectiveE = Math.min(comet.eccentricity, 0.94);
 
-        // 平均角速度 n = 2π / T
-        const n = (2 * Math.PI) / periodDays;
+        // 克卜勒第二定律 (面積定律) 動態角速度：dθ/dt ∝ 1/r² (角動量守恆)
+        // 近日點時彗星受強大太陽重力加速高速俯衝甩尾，遠日點時緩慢悠然滑行
+        const baseVisualSpeed = comet.id === 'halley' ? 0.0045 : 0.0028;
+        const r_factor = (1 - effectiveE * effectiveE) / (1 + effectiveE * Math.cos(cState.orbitAngle));
+        const keplerSpeedMultiplier = Math.min(Math.max(0.6 / (r_factor * r_factor), 0.12), 12.0);
+
         const dir = comet.inclinationDeg > 90 ? -1 : 1; // 逆向軌道 (哈雷為逆行)
-        cState.orbitAngle = (cState.initialPhase + dir * n * this.simDays) % (Math.PI * 2);
+        const dTheta = dir * baseVisualSpeed * keplerSpeedMultiplier * daysStep;
+        cState.orbitAngle = (cState.orbitAngle + dTheta) % (Math.PI * 2);
         if (cState.orbitAngle < 0) cState.orbitAngle += Math.PI * 2;
 
         let azimuth = (cState.orbitAngle * 180 / Math.PI) % 360;

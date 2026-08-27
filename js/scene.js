@@ -793,93 +793,177 @@ class SolarScene {
 
   /**
    * 建立著名彗星 (哈雷彗星 1P/Halley & 海爾-波普彗星 C/1995 O1)
-   * 包含真實 3D 彗核、揮發性彗髮 (Coma)、背向太陽的雙彗尾 (離子尾 + 塵埃尾) 與大離心率軌道
+   * 最高解析度版本：包含高細分碎形雕刻 3D 彗核、多層體積感彗髮、絲狀電漿離子尾 (Ion Tail) 與微米微晶塵埃尾 (Dust Tail)
    */
   createComets() {
     if (typeof COMETS_DATA === 'undefined') return;
 
     COMETS_DATA.forEach(comet => {
       const cometGroup = new THREE.Group();
+      const isHaleBopp = comet.id === 'hale_bopp';
 
-      // 1. 彗核 (Comet Nucleus) - 表面多孔坑窪深色冰岩
-      const nucleusGeo = new THREE.DodecahedronGeometry(comet.id === 'hale_bopp' ? 1.5 : 1.1, 1);
+      // 1. 最高解析度碎形地形雕刻 3D 彗核 (Ultra-HD Sculpted Irregular Nucleus)
+      const baseRadius = isHaleBopp ? 1.6 : 1.15;
+      const nucleusGeo = new THREE.IcosahedronGeometry(baseRadius, 4); // 高細分球體 (2,560 面)
+      const posAttr = nucleusGeo.attributes.position;
+      
+      // 使用多頻率碎形正弦噪聲模擬真實彗星表面撞擊坑、昇華裂谷與尖銳冰脊
+      for (let i = 0; i < posAttr.count; i++) {
+        const vx = posAttr.getX(i);
+        const vy = posAttr.getY(i);
+        const vz = posAttr.getZ(i);
+        const len = Math.sqrt(vx * vx + vy * vy + vz * vz);
+        const nx = vx / len;
+        const ny = vy / len;
+        const nz = vz / len;
+
+        // 碎形地形起伏擾動 (Fractal Terrain Displacement)
+        const d1 = 0.28 * Math.sin(nx * 4.2 + ny * 2.8) * Math.cos(nz * 3.5);
+        const d2 = 0.14 * Math.sin(nx * 8.5 + nz * 6.2);
+        const d3 = 0.07 * Math.cos(ny * 14.0 + nx * 11.0);
+        const scale = 1.0 + d1 + d2 + d3;
+
+        posAttr.setXYZ(i, vx * scale, vy * scale * 0.82, vz * scale); // 略微扁長橢球狀
+      }
+      nucleusGeo.computeVertexNormals();
+
       const nucleusMat = new THREE.MeshStandardMaterial({
-        color: 0x242a30,
-        roughness: 0.95,
-        metalness: 0.1
+        color: 0x1c2127,
+        roughness: 0.96,
+        metalness: 0.05
       });
       const nucleusMesh = new THREE.Mesh(nucleusGeo, nucleusMat);
+      nucleusMesh.castShadow = true;
       nucleusMesh.userData = { id: comet.id, name: comet.zhName, isComet: true };
       cometGroup.add(nucleusMesh);
 
-      // 2. 彗髮 (Coma) - 昇華游離氣體發光球包層
-      const comaGeo = new THREE.SphereGeometry(comet.id === 'hale_bopp' ? 3.8 : 2.8, 24, 24);
-      const comaMat = new THREE.MeshBasicMaterial({
+      // 2. 超高解析度多層體積彗髮 (Multi-Layered Volumetric Glowing Coma)
+      // 內層極致熾熱核心 (Dense Inner Coma)
+      const innerComaTex = TextureGenerator.createCometComaTexture(1024, '#ffffff', comet.comaColor);
+      const innerComaMat = new THREE.SpriteMaterial({
+        map: innerComaTex,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const innerComaSprite = new THREE.Sprite(innerComaMat);
+      const innerComaSize = isHaleBopp ? 9.0 : 6.5;
+      innerComaSprite.scale.set(innerComaSize, innerComaSize, 1);
+      cometGroup.add(innerComaSprite);
+
+      // 外層擴展螢光氣體包層 (Outer Swan Band Fluorescent Coma)
+      const outerComaGeo = new THREE.SphereGeometry(isHaleBopp ? 4.6 : 3.4, 32, 32);
+      const outerComaMat = new THREE.MeshBasicMaterial({
         color: new THREE.Color(comet.comaColor),
+        transparent: true,
+        opacity: 0.40,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const outerComaMesh = new THREE.Mesh(outerComaGeo, outerComaMat);
+      cometGroup.add(outerComaMesh);
+
+      // 3. 2K 超高解析度絲狀離子尾 (Ultra-HD Filamentary Ion Tail)
+      // 採用 3 組交叉多平面與柔和外層圓柱 (Multi-Sheet Volumetric Sheath)
+      const ionTailLen = isHaleBopp ? 65 : 48;
+      const ionTex = TextureGenerator.createCometIonTailTexture(512, 1024, isHaleBopp ? false : true);
+      const ionTailPivot = new THREE.Group();
+
+      const ionPlaneGeo = new THREE.PlaneGeometry(isHaleBopp ? 7.5 : 5.2, ionTailLen);
+      const ionMat = new THREE.MeshBasicMaterial({
+        map: ionTex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      // 0度、60度、120度三向交叉平面，消除任何角度視覺死角
+      for (let ang = 0; ang < 3; ang++) {
+        const pMesh = new THREE.Mesh(ionPlaneGeo, ionMat);
+        pMesh.position.y = ionTailLen / 2;
+        pMesh.rotation.y = (ang * Math.PI) / 3;
+        ionTailPivot.add(pMesh);
+      }
+
+      // 外層微弱包絡圓柱
+      const ionCylGeo = new THREE.CylinderGeometry(0.4, isHaleBopp ? 3.8 : 2.8, ionTailLen, 32, 1, true);
+      const ionCylMat = new THREE.MeshBasicMaterial({
+        map: ionTex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const ionCylMesh = new THREE.Mesh(ionCylGeo, ionCylMat);
+      ionCylMesh.position.y = ionTailLen / 2;
+      ionTailPivot.add(ionCylMesh);
+      cometGroup.add(ionTailPivot);
+
+      // 4. 2K 超高解析度微米微晶塵埃尾 (Ultra-HD Curved Dust Tail)
+      const dustTailLen = isHaleBopp ? 56 : 40;
+      const dustTex = TextureGenerator.createCometDustTailTexture(1024, 1024, isHaleBopp ? true : false);
+      const dustTailPivot = new THREE.Group();
+
+      const dustPlaneGeo = new THREE.PlaneGeometry(isHaleBopp ? 14 : 10, dustTailLen);
+      const dustMat = new THREE.MeshBasicMaterial({
+        map: dustTex,
+        side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.75,
         blending: THREE.AdditiveBlending,
         depthWrite: false
       });
-      const comaMesh = new THREE.Mesh(comaGeo, comaMat);
-      cometGroup.add(comaMesh);
 
-      // 3. 離子氣體尾 (Ion Tail - 藍色直刺光束，沿日彗連線背向太陽)
-      const ionTailLen = comet.id === 'hale_bopp' ? 55 : 42;
-      const ionGeo = new THREE.CylinderGeometry(0.3, 3.2, ionTailLen, 24, 1, true);
-      const ionMat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(comet.ionTailColor),
+      for (let ang = 0; ang < 2; ang++) {
+        const dMesh = new THREE.Mesh(dustPlaneGeo, dustMat);
+        dMesh.position.y = dustTailLen / 2;
+        dMesh.rotation.y = (ang * Math.PI) / 2;
+        dMesh.rotation.z = 0.22; // 自然軌道運動彎曲角
+        dustTailPivot.add(dMesh);
+      }
+      cometGroup.add(dustTailPivot);
+
+      // 5. 向日面氣體昇華高速噴流 (Sunward Sublimation Jets)
+      const jetPivot = new THREE.Group();
+      const jetConeGeo = new THREE.ConeGeometry(0.8, 4.0, 16, 1, true);
+      const jetMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
         transparent: true,
         opacity: 0.65,
         blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
         depthWrite: false
       });
-      const ionTailMesh = new THREE.Mesh(ionGeo, ionMat);
-      ionTailMesh.position.y = ionTailLen / 2;
-      const ionTailPivot = new THREE.Group();
-      ionTailPivot.add(ionTailMesh);
-      cometGroup.add(ionTailPivot);
+      const jetMesh = new THREE.Mesh(jetConeGeo, jetMat);
+      jetMesh.position.y = -2.0;
+      jetMesh.rotation.x = Math.PI;
+      jetPivot.add(jetMesh);
+      cometGroup.add(jetPivot);
 
-      // 4. 塵埃尾 (Dust Tail - 金黃/白色寬闊微彎光幕)
-      const dustTailLen = comet.id === 'hale_bopp' ? 48 : 35;
-      const dustGeo = new THREE.ConeGeometry(5.8, dustTailLen, 24, 1, true);
-      const dustMat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(comet.dustTailColor),
-        transparent: true,
-        opacity: 0.45,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-        depthWrite: false
-      });
-      const dustTailMesh = new THREE.Mesh(dustGeo, dustMat);
-      dustTailMesh.position.y = dustTailLen / 2;
-      dustTailMesh.rotation.z = 0.18; // 微幅彎曲滯後角
-      const dustTailPivot = new THREE.Group();
-      dustTailPivot.add(dustTailMesh);
-      cometGroup.add(dustTailPivot);
-
-      // 5. 3D 浮動標籤
+      // 6. 3D 浮動標籤 (High-DPI Canvas Sprite)
       const canvas = document.createElement('canvas');
-      canvas.width = 380;
-      canvas.height = 76;
+      canvas.width = 420;
+      canvas.height = 84;
       const ctx = canvas.getContext('2d');
-      ctx.font = 'bold 22px "Inter", "Segoe UI", sans-serif';
+      ctx.font = 'bold 24px "Inter", "Segoe UI", sans-serif';
       ctx.fillStyle = comet.orbitColor;
       ctx.textAlign = 'center';
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = 6;
-      ctx.fillText(`☄️ ${comet.zhName}`, 190, 42);
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = 8;
+      ctx.fillText(`☄️ ${comet.zhName}`, 210, 48);
 
       const labelTex = new THREE.CanvasTexture(canvas);
       const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false }));
-      labelSprite.scale.set(30, 6, 1);
-      labelSprite.position.set(0, 7, 0);
+      labelSprite.scale.set(32, 6.4, 1);
+      labelSprite.position.set(0, 8, 0);
       cometGroup.add(labelSprite);
 
-      // 6. 彗星 3D 克卜勒大橢圓軌跡線
+      // 7. 彗星 3D 高細分克卜勒大橢圓軌跡線 (Smooth Orbit Trajectory)
       const orbitPoints = [];
-      const numOrbPts = 200;
+      const numOrbPts = 400; // 400 高細分平滑點
       const a = comet.orbitVisualA;
       const e = comet.eccentricity * 0.94;
       const incRad = (comet.inclinationDeg * Math.PI) / 180;
@@ -899,10 +983,10 @@ class SolarScene {
       const orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
       const orbitMat = new THREE.LineDashedMaterial({
         color: new THREE.Color(comet.orbitColor),
-        dashSize: 6,
-        gapSize: 4,
+        dashSize: 5,
+        gapSize: 3,
         transparent: true,
-        opacity: 0.65
+        opacity: 0.70
       });
       const orbitLine = new THREE.Line(orbitGeo, orbitMat);
       orbitLine.computeLineDistances();
@@ -912,9 +996,11 @@ class SolarScene {
       this.cometObjects.set(comet.id, {
         group: cometGroup,
         nucleusMesh: nucleusMesh,
-        comaMesh: comaMesh,
+        innerComaSprite: innerComaSprite,
+        outerComaMesh: outerComaMesh,
         ionTailPivot: ionTailPivot,
         dustTailPivot: dustTailPivot,
+        jetPivot: jetPivot,
         orbitLine: orbitLine,
         label: labelSprite,
         data: comet
@@ -1398,11 +1484,24 @@ class SolarScene {
         const dustQuat = new THREE.Quaternion().setFromUnitVectors(upVec, dustDir);
         cObj.dustTailPivot.quaternion.copy(dustQuat);
 
-        // 彗尾長度、彗髮體積隨近日點活性因子動態縮放
+        // 彗尾長度、多層彗髮體積隨近日點活性因子動態縮放
         const act = cState.activityFactor;
         cObj.ionTailPivot.scale.set(act, act, act);
         cObj.dustTailPivot.scale.set(act * 1.1, act * 0.95, act * 1.1);
-        cObj.comaMesh.scale.set(act * 0.85 + 0.35, act * 0.85 + 0.35, act * 0.85 + 0.35);
+
+        if (cObj.innerComaSprite) {
+          const isHB = cObj.data.id === 'hale_bopp';
+          const baseComa = isHB ? 9.0 : 6.5;
+          const currentComa = baseComa * (act * 0.75 + 0.35);
+          cObj.innerComaSprite.scale.set(currentComa, currentComa, 1);
+        }
+        if (cObj.outerComaMesh) {
+          cObj.outerComaMesh.scale.set(act * 0.85 + 0.35, act * 0.85 + 0.35, act * 0.85 + 0.35);
+        }
+        if (cObj.jetPivot) {
+          cObj.jetPivot.quaternion.copy(targetQuat);
+          cObj.jetPivot.scale.set(act * 0.9, act * 0.9, act * 0.9);
+        }
       });
     }
 

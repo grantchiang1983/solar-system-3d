@@ -1074,4 +1074,169 @@ class TextureGenerator {
     const tex = new THREE.CanvasTexture(canvas);
     return tex;
   }
+
+  /**
+   * 建立高解析度彗星離子氣體尾 (Ion Tail) 絲狀電漿紋理
+   * 模擬 CO+ / N2+ 離子在太陽風磁場中的絲狀流動 (Streamlines & Filaments)
+   */
+  static createCometIonTailTexture(width = 512, height = 1024, isBlue = true) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    ctx.clearRect(0, 0, width, height);
+
+    // 主離子束縱向漸層 (核心亮白 -> 中段湛藍 -> 遠端微弱淡出)
+    const cx = width / 2;
+    const mainGrad = ctx.createLinearGradient(0, 0, 0, height);
+    mainGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.95)');
+    mainGrad.addColorStop(0.08, isBlue ? 'rgba(56, 189, 248, 0.85)' : 'rgba(96, 165, 250, 0.85)');
+    mainGrad.addColorStop(0.45, isBlue ? 'rgba(37, 99, 235, 0.55)' : 'rgba(59, 130, 246, 0.55)');
+    mainGrad.addColorStop(0.85, 'rgba(29, 78, 216, 0.20)');
+    mainGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+
+    // 繪製多道超細緻電漿磁力絲 (Magnetic Plasma Filaments)
+    for (let f = 0; f < 32; f++) {
+      const offsetX = (Math.random() - 0.5) * (width * 0.45);
+      const startWidth = Math.random() * 4 + 2;
+      const endWidth = Math.random() * 18 + 8;
+      
+      const fGrad = ctx.createLinearGradient(0, 0, 0, height);
+      fGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.8)');
+      fGrad.addColorStop(0.15, isBlue ? 'rgba(125, 211, 252, 0.7)' : 'rgba(147, 197, 253, 0.7)');
+      fGrad.addColorStop(0.6, isBlue ? 'rgba(14, 165, 233, 0.35)' : 'rgba(37, 99, 235, 0.35)');
+      fGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+
+      ctx.strokeStyle = fGrad;
+      ctx.lineWidth = startWidth;
+      ctx.beginPath();
+      ctx.moveTo(cx, 0);
+
+      // 疊加微幅正弦波動 (波度模擬太陽風震波)
+      const waveFreq = Math.random() * 0.02 + 0.01;
+      const waveAmp = Math.random() * 14 + 6;
+      for (let y = 0; y <= height; y += 16) {
+        const t = y / height;
+        const wx = cx + offsetX * t + Math.sin(y * waveFreq) * waveAmp * t;
+        ctx.lineTo(wx, y);
+      }
+      ctx.stroke();
+    }
+
+    // 中軸超高亮線束
+    const centerGrad = ctx.createLinearGradient(0, 0, 0, height);
+    centerGrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    centerGrad.addColorStop(0.2, 'rgba(186, 230, 253, 0.8)');
+    centerGrad.addColorStop(0.7, 'rgba(56, 189, 248, 0.3)');
+    centerGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+
+    ctx.strokeStyle = centerGrad;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx, height);
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    return tex;
+  }
+
+  /**
+   * 建立高解析度彗星塵埃尾 (Dust Tail) 柔和微米顆粒光幕紋理
+   * 模擬受太陽光輻射壓推斥的微米冰晶與塵埃雲 (Striae & Syndynes)
+   */
+  static createCometDustTailTexture(width = 1024, height = 1024, isGolden = false) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    ctx.clearRect(0, 0, width, height);
+
+    // 放射狀塵埃扇形漸層
+    const cx = width * 0.5;
+    const cy = 0;
+
+    // 寬闊塵埃羽流
+    for (let i = 0; i < 48; i++) {
+      const angle = (Math.random() - 0.5) * 0.45 + (Math.PI * 0.5);
+      const rayLen = height * (0.6 + Math.random() * 0.4);
+      const endX = cx + Math.cos(angle) * rayLen;
+      const endY = cy + Math.sin(angle) * rayLen;
+
+      const rGrad = ctx.createLinearGradient(cx, cy, endX, endY);
+      if (isGolden) {
+        rGrad.addColorStop(0.0, 'rgba(255, 255, 240, 0.85)');
+        rGrad.addColorStop(0.12, 'rgba(254, 240, 138, 0.70)');
+        rGrad.addColorStop(0.45, 'rgba(250, 204, 21, 0.35)');
+        rGrad.addColorStop(0.8, 'rgba(245, 158, 11, 0.12)');
+        rGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+      } else {
+        rGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.85)');
+        rGrad.addColorStop(0.15, 'rgba(224, 242, 254, 0.65)');
+        rGrad.addColorStop(0.5, 'rgba(186, 230, 253, 0.30)');
+        rGrad.addColorStop(0.85, 'rgba(125, 211, 252, 0.10)');
+        rGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+      }
+
+      ctx.fillStyle = rGrad;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(endX - (Math.random() * 40 + 20), endY);
+      ctx.lineTo(endX + (Math.random() * 40 + 20), endY);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 數千顆微晶塵埃粒子
+    for (let p = 0; p < 2500; p++) {
+      const t = Math.pow(Math.random(), 1.2);
+      const angle = (Math.random() - 0.5) * 0.42 + (Math.PI * 0.5);
+      const r = t * height;
+      const px = cx + Math.cos(angle) * r + (Math.random() - 0.5) * 30 * t;
+      const py = cy + Math.sin(angle) * r;
+
+      const alpha = (1.0 - t * 0.85) * (Math.random() * 0.6 + 0.3);
+      ctx.fillStyle = isGolden ? `rgba(254, 240, 138, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(px, py, Math.random() * 2.2 + 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
+
+  /**
+   * 建立高解析度彗髮氣體包層 (Coma) 柔和發光星雲貼圖
+   */
+  static createCometComaTexture(size = 1024, coreCol = '#ffffff', haloCol = '#34d399') {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    const cx = size / 2;
+    const cy = size / 2;
+    const r = size / 2;
+
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    g.addColorStop(0.12, 'rgba(255, 255, 255, 0.85)');
+    g.addColorStop(0.35, haloCol);
+    g.addColorStop(0.70, 'rgba(16, 185, 129, 0.25)');
+    g.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
 }
+

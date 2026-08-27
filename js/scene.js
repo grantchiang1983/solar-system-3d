@@ -1389,19 +1389,7 @@ class SolarScene {
     sunBeacon.position.set(0, 0, 1400);
     this.milkyWayGroup.add(sunBeacon);
 
-    const sunPulseGeo = new THREE.RingGeometry(30, 35, 48);
-    const sunPulseMat = new THREE.MeshBasicMaterial({
-      color: 0x00f2fe,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.40,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
-    });
-    this.sunPulseRing = new THREE.Mesh(sunPulseGeo, sunPulseMat);
-    this.sunPulseRing.rotation.x = Math.PI / 2;
-    this.sunPulseRing.position.set(0, 0, 1400);
-    this.milkyWayGroup.add(this.sunPulseRing);
+
 
     const sunLabelCanvas = document.createElement('canvas');
     sunLabelCanvas.width = 320;
@@ -1724,15 +1712,6 @@ class SolarScene {
       }
     });
 
-    // 太陽系在獵戶臂上的脈動光環動畫
-    if (this.sunPulseRing) {
-      const pTime = performance.now() * 0.0025;
-      const pScale = 1.0 + Math.sin(pTime) * 0.18;
-      this.sunPulseRing.scale.set(pScale, pScale, pScale);
-      if (this.sunPulseRing.material) {
-        this.sunPulseRing.material.opacity = 0.35 + Math.sin(pTime) * 0.20;
-      }
-    }
 
     // 5. 更新彗星位置、彗尾指向與活躍度
     if (this.simulation.cometStates && this.cometObjects) {

@@ -395,3 +395,60 @@ const BLACK_HOLES_DATA = [
     funFact: '2020年諾貝爾物理學獎正因發現此黑洞而頒發；2022年人類透過跨洲射電望遠鏡陣列，首次親眼目睹了人馬座 A* 的吸積盤光環！'
   }
 ];
+
+/**
+ * 著名彗星資料庫 (Comets Dataset - 1P/Halley & C/1995 O1 Hale-Bopp)
+ * 數據來源：NASA JPL Small-Body Database (SBDB) & IAU Minor Planet Center
+ */
+const COMETS_DATA = [
+  {
+    id: 'halley',
+    name: '1P/Halley',
+    zhName: '哈雷彗星 (1P/Halley)',
+    type: 'periodic_comet',
+    orbitalPeriodYears: 75.32,
+    semiMajorAxisAU: 17.834,
+    eccentricity: 0.96714,
+    inclinationDeg: 162.26,        // 逆向公轉
+    perihelionAU: 0.586,           // 近日點 (0.586 AU)
+    aphelionAU: 35.08,             // 遠日點 (35.08 AU，海王星軌道外)
+    ascendingNodeDeg: 58.42,
+    argumentOfPeriapsisDeg: 111.33,
+    nucleusSizeKm: '15 × 8 × 8 km',
+    nextPerihelionYear: '2061 年 7 月 28 日',
+    lastPerihelionYear: '1986 年 2 月 9 日',
+    visualScale: 1.1,
+    orbitVisualA: 118,             // 視覺軌道半長軸
+    orbitColor: '#10b981',         // 綠寶石翡翠彗髮
+    comaColor: '#34d399',
+    ionTailColor: '#38bdf8',       // 藍色離子尾
+    dustTailColor: '#e0f2fe',      // 白色塵埃尾
+    description: '人類歷史上最傳奇的週期彗星！由愛德蒙·哈雷（Edmond Halley）於 1705 年首次預測其週期性回歸，是唯一能用肉眼清晰看見且一生中可能目睹兩次的傳奇天體。',
+    funFact: '哈雷彗星的彗核極其黑暗（反照率僅 0.04，宛如黑炭），但當它接近太陽時，受太陽輻射強烈昇華，碳分子 C2 與氰基 CN 游離發出標誌性的翡翠綠光！'
+  },
+  {
+    id: 'hale_bopp',
+    name: 'C/1995 O1 (Hale-Bopp)',
+    zhName: '海爾-波普彗星 (C/1995 O1)',
+    type: 'great_comet',
+    orbitalPeriodYears: 2533,
+    semiMajorAxisAU: 186.0,
+    eccentricity: 0.995086,
+    inclinationDeg: 89.43,         // 垂直黃道面俯衝軌道
+    perihelionAU: 0.914,           // 近日點 (接近地球軌道)
+    aphelionAU: 370.8,             // 遠日點 (奧爾特雲內緣)
+    ascendingNodeDeg: 282.47,
+    argumentOfPeriapsisDeg: 130.59,
+    nucleusSizeKm: '約 40 ~ 60 km (巨無霸彗核)',
+    nextPerihelionYear: '約 4385 年',
+    lastPerihelionYear: '1997 年 4 月 1 日',
+    visualScale: 1.4,
+    orbitVisualA: 155,             // 視覺軌道半長軸
+    orbitColor: '#f59e0b',         // 金黃大彗星
+    comaColor: '#fbbf24',
+    ionTailColor: '#2563eb',       // 深邃電藍離子尾
+    dustTailColor: '#fef08a',      // 亮金黃彎曲塵埃尾
+    description: '20 世紀最壯麗的世紀大彗星！其彗核直徑高達 40~60 公里（為一般彗星的數倍至十倍大），在 1997 年回歸時肉眼可見時間長達破紀錄的 18 個月！',
+    funFact: '海爾-波普彗星擁有教科書級別的壯麗雙彗尾：一條筆直深邃的電藍色「CO+ 離子尾」直指太陽反方向，另一條彎曲寬闊的亮金黃色「微米塵埃尾」隨軌道延展達數千萬公里！'
+  }
+];

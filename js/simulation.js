@@ -14,6 +14,30 @@ class SolarSimulation {
     // 行星當前運算狀態表
     this.planetStates = new Map();
     this.initPlanetStates();
+
+    // 彗星當前運算狀態表
+    this.cometStates = new Map();
+    this.initCometStates();
+  }
+
+  initCometStates() {
+    if (typeof COMETS_DATA === 'undefined') return;
+    COMETS_DATA.forEach((comet, idx) => {
+      const initialPhase = idx === 0 ? 0.4 : 1.1; // 起始相位
+      this.cometStates.set(comet.id, {
+        id: comet.id,
+        initialPhase: initialPhase,
+        orbitAngle: initialPhase,
+        azimuthDeg: (initialPhase * 180 / Math.PI) % 360,
+        currentDistanceAU: comet.semiMajorAxisAU,
+        currentDistanceKm: comet.semiMajorAxisAU * ASTRO_CONSTANTS.AU_IN_KM,
+        currentSpeedKmS: 30.0,
+        activityFactor: 1.0,
+        x: 0,
+        y: 0,
+        z: 0
+      });
+    });
   }
 
   initPlanetStates() {
@@ -151,6 +175,57 @@ class SolarSimulation {
         state.moonSpeedKmS = 1.022; // 月球公轉速度
       }
     });
+
+    // 更新彗星軌道物理狀態 (克卜勒超大離心率軌道與近日點彗尾活性計算)
+    if (typeof COMETS_DATA !== 'undefined' && this.cometStates) {
+      COMETS_DATA.forEach(comet => {
+        const cState = this.cometStates.get(comet.id);
+        if (!cState) return;
+
+        const a_AU = comet.semiMajorAxisAU;
+        const e = comet.eccentricity;
+        const periodDays = comet.orbitalPeriodYears * 365.25;
+
+        // 平均角速度 n = 2π / T
+        const n = (2 * Math.PI) / periodDays;
+        const dir = comet.inclinationDeg > 90 ? -1 : 1; // 逆向軌道 (哈雷為逆行)
+        cState.orbitAngle = (cState.initialPhase + dir * n * this.simDays) % (Math.PI * 2);
+        if (cState.orbitAngle < 0) cState.orbitAngle += Math.PI * 2;
+
+        let azimuth = (cState.orbitAngle * 180 / Math.PI) % 360;
+        if (azimuth < 0) azimuth += 360;
+        cState.azimuthDeg = azimuth;
+
+        // 當前日心距 r_AU = a(1 - e²) / (1 + e * cos(θ))
+        const r_AU = (a_AU * (1 - e * e)) / (1 + e * Math.cos(cState.orbitAngle));
+        cState.currentDistanceAU = Math.max(r_AU, comet.perihelionAU);
+        cState.currentDistanceKm = cState.currentDistanceAU * ASTRO_CONSTANTS.AU_IN_KM;
+
+        // 瞬時公轉速度 (Vis-viva 活力公式: v = sqrt(GM * (2/r - 1/a)))
+        const r_km = cState.currentDistanceKm;
+        const a_km = a_AU * ASTRO_CONSTANTS.AU_IN_KM;
+        const v_instant = Math.sqrt(Math.max(0, ASTRO_CONSTANTS.GM_SUN * (2.0 / r_km - 1.0 / a_km)));
+        cState.currentSpeedKmS = isNaN(v_instant) ? 35.0 : v_instant;
+
+        // 彗星噴氣與彗尾活性因子 (距離太陽越近，活性與彗尾長度呈 1/r^2 爆發式增強)
+        cState.activityFactor = Math.min(Math.max(Math.pow(1.8 / Math.max(cState.currentDistanceAU, 0.4), 1.5), 0.1), 3.5);
+
+        // 3D 視覺座標
+        const visualA = comet.orbitVisualA;
+        const visualR = (visualA * (1 - e * 0.94 * 0.94)) / (1 + e * 0.94 * Math.cos(cState.orbitAngle));
+        
+        const incRad = (comet.inclinationDeg * Math.PI) / 180;
+        const nodeRad = (comet.ascendingNodeDeg * Math.PI) / 180;
+
+        // 傾角與升交點黃道坐標變換
+        const x_orb = visualR * Math.cos(cState.orbitAngle);
+        const z_orb = visualR * Math.sin(cState.orbitAngle);
+
+        cState.x = x_orb * Math.cos(nodeRad) - z_orb * Math.cos(incRad) * Math.sin(nodeRad);
+        cState.z = x_orb * Math.sin(nodeRad) + z_orb * Math.cos(incRad) * Math.cos(nodeRad);
+        cState.y = z_orb * Math.sin(incRad);
+      });
+    }
   }
 
   /**

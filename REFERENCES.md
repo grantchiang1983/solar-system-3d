@@ -1,4 +1,4 @@
-﻿# 📚 3D 太陽系、銀河系與黑洞天文模擬系統 — 參考資料與文獻庫 (Astrophysical References & Documentation)
+# 📚 3D 太陽系、銀河系與黑洞天文模擬系統 — 參考資料與文獻庫 (Astrophysical References & Documentation)
 
 本專案之天體物理常數、軌道動力學方程式、天體測量數據、廣義相對論黑洞光學模型與 3D 視覺著色模型，均嚴格參照各國航太總署（NASA、ESA）、國際天文學聯會（IAU）與頂尖天文學術文獻。
 
@@ -78,7 +78,21 @@
 
 ---
 
-## 4. 🎨 視覺貼圖、著色器與圖庫來源 (Visual Textures & Shaders)
+---
+
+## 4. ☄️ 彗星天體物理與軌道力學模型 (Cometary Dynamics & Tail Physics)
+
+1. **NASA JPL Small-Body Database (SBDB)**:
+   - **1P/Halley (哈雷彗星)**: SPK-ID: `1000034`, 近日點 $q = 0.586\text{ AU}$, 遠日點 $Q = 35.08\text{ AU}$, 離心率 $e = 0.96714$, 軌道傾角 $i = 162.26^\circ$（逆向軌道）。
+   - **C/1995 O1 Hale-Bopp (海爾-波普彗星)**: SPK-ID: `1000083`, 彗核直徑 $40 \sim 60\text{ km}$, 離心率 $e = 0.995086$, 軌道傾角 $i = 89.43^\circ$。
+2. **雙彗尾物理形成機制 (Bi-Cometary Tail Formation)**:
+   - **離子氣體尾 (Ion Tail)**：彗核揮發出之 $CO^+$、$N_2^+$ 等帶電分子受太陽風磁場（Solar Wind）高速電漿流強烈排斥，形成筆直指向太陽反方向的深藍色細長光柱。
+   - **微米塵埃尾 (Dust Tail)**：受太陽輻射壓（Radiation Pressure）推擠並隨彗星軌道克卜勒公轉慣性滯後，形成宏偉彎曲的亮金黃色塵埃光幕。
+   - **揮發活性指數 (Outgassing Activity)**：彗髮與彗尾長度隨日心距呈現反二次方 $\sim 1/r^2$ 激增，精確模擬近日點氣體大爆發。
+
+---
+
+## 5. 🎨 視覺貼圖、著色器與圖庫來源 (Visual Textures & Shaders)
 
 1. **NASA Scientific Visualization Studio (SVS)**:
    - [NASA Blue Marble & Black Marble (City Lights)](https://visibleearth.nasa.gov/collection/1484/blue-marble) — 地球 2K 全球日照、夜間城市燈火、高程法線與雲層。

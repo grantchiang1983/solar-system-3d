@@ -12,6 +12,7 @@ class SolarApp {
     // 狀態追蹤
     this.selectedPlanetId = 'earth';
     this.selectedBlackHoleId = null;
+    this.selectedCometId = null;
     this.lastTime = performance.now();
     this.soundEnabled = true;
     this.audioCtx = null;
@@ -19,6 +20,7 @@ class SolarApp {
     // 全域選取天體回呼
     window.onPlanetSelected = (planetId) => this.selectPlanet(planetId);
     window.onBlackHoleSelected = (bhId) => this.selectBlackHole(bhId);
+    window.onCometSelected = (cometId) => this.selectComet(cometId);
 
     this.initUI();
     this.renderPlanetMatrix();
@@ -180,6 +182,145 @@ class SolarApp {
       });
       container.appendChild(bhChip);
     });
+
+    // 彗星 Chips (Comets)
+    if (typeof COMETS_DATA !== 'undefined') {
+      const sep2 = document.createElement('div');
+      sep2.className = 'chip-separator';
+      container.appendChild(sep2);
+
+      COMETS_DATA.forEach(c => {
+        const cChip = document.createElement('button');
+        cChip.className = `planet-chip comet-chip ${c.id === this.selectedCometId ? 'active' : ''}`;
+        cChip.id = `chip-${c.id}`;
+        cChip.innerHTML = `
+          <span class="chip-color-dot" style="background-color: ${c.orbitColor}"></span>
+          <span class="chip-name">☄️ ${c.name}</span>
+        `;
+        cChip.addEventListener('click', () => {
+          this.selectComet(c.id, true);
+          this.playBeep(660, 0.04);
+        });
+        container.appendChild(cChip);
+      });
+    }
+  }
+
+  /**
+   * 選取彗星並更新特寫鏡頭與彗星專屬天體卡
+   */
+  selectComet(cometId, autoFocus = true) {
+    this.selectedCometId = cometId;
+    this.selectedPlanetId = null;
+    this.selectedBlackHoleId = null;
+
+    // 更新 Chips
+    document.querySelectorAll('.planet-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.id === `chip-${cometId}`);
+    });
+
+    // 取消 Matrix 表格高亮
+    document.querySelectorAll('.telemetry-row').forEach(row => {
+      row.classList.remove('active-row');
+    });
+
+    if (autoFocus) {
+      this.scene.focusOnComet(cometId);
+      this.updateActiveViewButton('btn-view-focus');
+    }
+
+    this.renderCometDetailCard(cometId);
+  }
+
+  /**
+   * 渲染彗星專屬天體物理卡
+   */
+  renderCometDetailCard(cometId) {
+    if (typeof COMETS_DATA === 'undefined') return;
+    const data = COMETS_DATA.find(c => c.id === cometId);
+    const card = document.getElementById('planet-detail-card');
+    if (!data || !card) return;
+
+    const state = this.simulation.cometStates?.get(cometId);
+    const azimuthText = `${(state?.azimuthDeg || 0).toFixed(1)}°`;
+    const speedText = `${(state?.currentSpeedKmS || 35.0).toFixed(2)} km/s`;
+    const distanceAUText = `${(state?.currentDistanceAU || data.semiMajorAxisAU).toFixed(3)} AU`;
+    const distanceKmText = `${((state?.currentDistanceKm || (data.semiMajorAxisAU * ASTRO_CONSTANTS.AU_IN_KM)) / 1e6).toFixed(2)} 百萬 km`;
+    const activityText = state ? `${(state.activityFactor * 100).toFixed(0)}% (近日昇華噴發)` : '100%';
+
+    card.innerHTML = `
+      <div class="card-header comet-header" style="border-left-color: ${data.orbitColor}">
+        <div class="card-title-group">
+          <h2 class="planet-title">☄️ ${data.zhName}</h2>
+          <span class="planet-badge comet-badge" style="background: rgba(16,185,129,0.2); color: ${data.orbitColor}; border: 1px solid ${data.orbitColor}">
+            ${data.type === 'great_comet' ? '世紀世紀大彗星' : '週期彗星'}
+          </span>
+        </div>
+        <button class="btn-focus-direct comet-focus-btn" onclick="app.scene.focusOnComet('${data.id}')" title="特寫鏡頭">🔍 鎖定彗星</button>
+      </div>
+
+      <!-- 彗星即時物理與動態數據 -->
+      <div class="telemetry-grid">
+        <div class="metric-box highlight">
+          <div class="metric-label">即時公轉速度 (Velocity)</div>
+          <div class="metric-value" id="card-speed" style="color: ${data.orbitColor}">${speedText}</div>
+          <div class="metric-sub">克卜勒活力公式瞬時速率</div>
+        </div>
+
+        <div class="metric-box highlight">
+          <div class="metric-label">當前日心距離 (Distance)</div>
+          <div class="metric-value" id="card-dist-au">${distanceAUText}</div>
+          <div class="metric-sub" id="card-dist-km">${distanceKmText}</div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-label">彗尾活性指數 (Activity)</div>
+          <div class="metric-value" id="card-comet-act" style="color: #38bdf8">${activityText}</div>
+          <div class="metric-sub">1/r² 近日點昇華強度</div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-label">公轉週期 (Orbit Period)</div>
+          <div class="metric-value">${data.orbitalPeriodYears} 年</div>
+          <div class="metric-sub">約 ${Math.round(data.orbitalPeriodYears * 365.25).toLocaleString()} 天</div>
+        </div>
+      </div>
+
+      <!-- 彗星天文軌道規格表 -->
+      <div class="specs-section">
+        <h4 class="section-title">彗星軌道與物理規格</h4>
+        <table class="specs-table">
+          <tr><td>彗核實體尺寸</td><td>${data.nucleusSizeKm}</td></tr>
+          <tr><td>軌道離心率 (e)</td><td><strong>${data.eccentricity}</strong> (超大扁橢圓)</td></tr>
+          <tr><td>近日點距離 (q)</td><td>${data.perihelionAU} AU (極度靠近太陽)</td></tr>
+          <tr><td>遠日點距離 (Q)</td><td>${data.aphelionAU} AU</td></tr>
+          <tr><td>軌道傾角 (i)</td><td>${data.inclinationDeg}° ${data.inclinationDeg > 90 ? '(逆向公轉)' : ''}</td></tr>
+          <tr><td>上次回歸年份</td><td>${data.lastPerihelionYear}</td></tr>
+          <tr><td>下次預計回歸</td><td><strong style="color: ${data.orbitColor}">${data.nextPerihelionYear}</strong></td></tr>
+        </table>
+      </div>
+
+      <!-- 雙彗尾構造解說 -->
+      <div class="comet-tail-structure" style="background: rgba(15,23,42,0.6); padding: 10px 14px; border-radius: 8px; margin: 12px 0; border: 1px solid rgba(255,255,255,0.08);">
+        <div style="font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">🌌 雙彗尾物理構造特徵：</div>
+        <div style="font-size: 0.8rem; color: #38bdf8; line-height: 1.5; margin-bottom: 4px;">
+          🔹 <strong>離子氣體尾 (Ion Tail)</strong>：受太陽風磁場高速排斥，筆直直指太陽正背向（呈鮮明深藍色）。
+        </div>
+        <div style="font-size: 0.8rem; color: #facc15; line-height: 1.5;">
+          🔸 <strong>微米塵埃尾 (Dust Tail)</strong>：受太陽光輻射壓推斥並隨公轉軌道微幅彎曲延展數千萬公里。
+        </div>
+      </div>
+
+      <!-- 天文簡介與趣味冷知識 -->
+      <div class="description-section">
+        <h4 class="section-title">天體簡介</h4>
+        <p class="desc-text">${data.description}</p>
+        <div class="fun-fact-box" style="background: rgba(16,185,129,0.1); border-left-color: ${data.orbitColor}">
+          <span class="fun-fact-icon">💡</span>
+          <span class="fun-fact-text"><strong>天文焦點：</strong>${data.funFact}</span>
+        </div>
+      </div>
+    `;
   }
 
   /**
@@ -507,6 +648,21 @@ class SolarApp {
           const mDist = document.getElementById('card-moon-dist');
           if (mDist && state.moonDistanceKm) mDist.textContent = `${Math.round(state.moonDistanceKm).toLocaleString()} km`;
         }
+      }
+    } else if (this.selectedCometId && this.simulation.cometStates) {
+      const cState = this.simulation.cometStates.get(this.selectedCometId);
+      if (cState) {
+        const cardSp = document.getElementById('card-speed');
+        if (cardSp) cardSp.textContent = `${cState.currentSpeedKmS.toFixed(2)} km/s`;
+
+        const cardDistAU = document.getElementById('card-dist-au');
+        if (cardDistAU) cardDistAU.textContent = `${cState.currentDistanceAU.toFixed(3)} AU`;
+
+        const cardDistKm = document.getElementById('card-dist-km');
+        if (cardDistKm) cardDistKm.textContent = `${(cState.currentDistanceKm / 1e6).toFixed(2)} 百萬 km`;
+
+        const cardAct = document.getElementById('card-comet-act');
+        if (cardAct) cardAct.textContent = `${(cState.activityFactor * 100).toFixed(0)}% (近日昇華噴發)`;
       }
     }
   }

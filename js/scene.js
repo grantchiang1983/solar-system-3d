@@ -29,10 +29,12 @@ class SolarScene {
     this.eclipticGrid = null;
     this.milkyWayGroup = null;
     this.blackHoleObjects = new Map();
+    this.cometObjects = new Map();
 
     // 視圖與相機控制
     this.focusedPlanetId = null;       // 當前鎖定跟隨的星球 ID ('sun', 'earth', etc.)
     this.focusedBlackHoleId = null;
+    this.focusedCometId = null;
     this.isTopDownView = false;
     this.cameraLerpTarget = null;
     this.controlsTargetLerp = null;
@@ -47,7 +49,8 @@ class SolarScene {
       atmosphereGlow: true,
       moonOrbit: true,
       milkyWay: true,
-      blackHoles: true
+      blackHoles: true,
+      comets: true
     };
 
     // 射線檢測
@@ -105,13 +108,16 @@ class SolarScene {
     // 9. 建立小行星帶與柯伊伯帶
     this.createAsteroidBelts();
 
-    // 10. 建立銀河系 3D 旋臂粒子星盤與核心光核
+    // 10. 建立著名彗星 (哈雷彗星 1P/Halley & 海爾-波普彗星 C/1995 O1)
+    this.createComets();
+
+    // 11. 建立銀河系 3D 旋臂粒子星盤與核心光核
     this.createMilkyWayGalaxy();
 
-    // 11. 建立已知黑洞 (重點標註最近黑洞 Gaia BH1 與銀心人馬座 A*)
+    // 12. 建立已知黑洞 (重點標註最近黑洞 Gaia BH1 與銀心人馬座 A*)
     this.createBlackHoles();
 
-    // 12. 事件監聽
+    // 13. 事件監聽
     window.addEventListener('resize', () => this.onWindowResize());
     this.renderer.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e));
   }
@@ -786,6 +792,137 @@ class SolarScene {
   }
 
   /**
+   * 建立著名彗星 (哈雷彗星 1P/Halley & 海爾-波普彗星 C/1995 O1)
+   * 包含真實 3D 彗核、揮發性彗髮 (Coma)、背向太陽的雙彗尾 (離子尾 + 塵埃尾) 與大離心率軌道
+   */
+  createComets() {
+    if (typeof COMETS_DATA === 'undefined') return;
+
+    COMETS_DATA.forEach(comet => {
+      const cometGroup = new THREE.Group();
+
+      // 1. 彗核 (Comet Nucleus) - 表面多孔坑窪深色冰岩
+      const nucleusGeo = new THREE.DodecahedronGeometry(comet.id === 'hale_bopp' ? 1.5 : 1.1, 1);
+      const nucleusMat = new THREE.MeshStandardMaterial({
+        color: 0x242a30,
+        roughness: 0.95,
+        metalness: 0.1
+      });
+      const nucleusMesh = new THREE.Mesh(nucleusGeo, nucleusMat);
+      nucleusMesh.userData = { id: comet.id, name: comet.zhName, isComet: true };
+      cometGroup.add(nucleusMesh);
+
+      // 2. 彗髮 (Coma) - 昇華游離氣體發光球包層
+      const comaGeo = new THREE.SphereGeometry(comet.id === 'hale_bopp' ? 3.8 : 2.8, 24, 24);
+      const comaMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(comet.comaColor),
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const comaMesh = new THREE.Mesh(comaGeo, comaMat);
+      cometGroup.add(comaMesh);
+
+      // 3. 離子氣體尾 (Ion Tail - 藍色直刺光束，沿日彗連線背向太陽)
+      const ionTailLen = comet.id === 'hale_bopp' ? 55 : 42;
+      const ionGeo = new THREE.CylinderGeometry(0.3, 3.2, ionTailLen, 24, 1, true);
+      const ionMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(comet.ionTailColor),
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const ionTailMesh = new THREE.Mesh(ionGeo, ionMat);
+      ionTailMesh.position.y = ionTailLen / 2;
+      const ionTailPivot = new THREE.Group();
+      ionTailPivot.add(ionTailMesh);
+      cometGroup.add(ionTailPivot);
+
+      // 4. 塵埃尾 (Dust Tail - 金黃/白色寬闊微彎光幕)
+      const dustTailLen = comet.id === 'hale_bopp' ? 48 : 35;
+      const dustGeo = new THREE.ConeGeometry(5.8, dustTailLen, 24, 1, true);
+      const dustMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(comet.dustTailColor),
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const dustTailMesh = new THREE.Mesh(dustGeo, dustMat);
+      dustTailMesh.position.y = dustTailLen / 2;
+      dustTailMesh.rotation.z = 0.18; // 微幅彎曲滯後角
+      const dustTailPivot = new THREE.Group();
+      dustTailPivot.add(dustTailMesh);
+      cometGroup.add(dustTailPivot);
+
+      // 5. 3D 浮動標籤
+      const canvas = document.createElement('canvas');
+      canvas.width = 380;
+      canvas.height = 76;
+      const ctx = canvas.getContext('2d');
+      ctx.font = 'bold 22px "Inter", "Segoe UI", sans-serif';
+      ctx.fillStyle = comet.orbitColor;
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 6;
+      ctx.fillText(`☄️ ${comet.zhName}`, 190, 42);
+
+      const labelTex = new THREE.CanvasTexture(canvas);
+      const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false }));
+      labelSprite.scale.set(30, 6, 1);
+      labelSprite.position.set(0, 7, 0);
+      cometGroup.add(labelSprite);
+
+      // 6. 彗星 3D 克卜勒大橢圓軌跡線
+      const orbitPoints = [];
+      const numOrbPts = 200;
+      const a = comet.orbitVisualA;
+      const e = comet.eccentricity * 0.94;
+      const incRad = (comet.inclinationDeg * Math.PI) / 180;
+      const nodeRad = (comet.ascendingNodeDeg * Math.PI) / 180;
+
+      for (let p = 0; p <= numOrbPts; p++) {
+        const theta = (p / numOrbPts) * Math.PI * 2;
+        const r = (a * (1 - e * e)) / (1 + e * Math.cos(theta));
+        const x_orb = r * Math.cos(theta);
+        const z_orb = r * Math.sin(theta);
+        const x = x_orb * Math.cos(nodeRad) - z_orb * Math.cos(incRad) * Math.sin(nodeRad);
+        const z = x_orb * Math.sin(nodeRad) + z_orb * Math.cos(incRad) * Math.cos(nodeRad);
+        const y = z_orb * Math.sin(incRad);
+        orbitPoints.push(new THREE.Vector3(x, y, z));
+      }
+
+      const orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
+      const orbitMat = new THREE.LineDashedMaterial({
+        color: new THREE.Color(comet.orbitColor),
+        dashSize: 6,
+        gapSize: 4,
+        transparent: true,
+        opacity: 0.65
+      });
+      const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+      orbitLine.computeLineDistances();
+      this.scene.add(orbitLine);
+
+      this.scene.add(cometGroup);
+      this.cometObjects.set(comet.id, {
+        group: cometGroup,
+        nucleusMesh: nucleusMesh,
+        comaMesh: comaMesh,
+        ionTailPivot: ionTailPivot,
+        dustTailPivot: dustTailPivot,
+        orbitLine: orbitLine,
+        label: labelSprite,
+        data: comet
+      });
+    });
+  }
+
+  /**
    * 建立銀河系宏觀 3D 旋臂粒子系統與銀心核球 (Milky Way Galaxy)
    */
   createMilkyWayGalaxy() {
@@ -1234,7 +1371,42 @@ class SolarScene {
       }
     });
 
-    // 5. 相機跟隨與平滑過渡
+    // 5. 更新彗星位置、彗尾指向與活躍度
+    if (this.simulation.cometStates && this.cometObjects) {
+      this.cometObjects.forEach((cObj, cometId) => {
+        const cState = this.simulation.cometStates.get(cometId);
+        if (!cState) return;
+
+        // 更新彗星位置
+        cObj.group.position.set(cState.x, cState.y, cState.z);
+
+        // 彗核自轉
+        cObj.nucleusMesh.rotation.y += 0.02;
+        cObj.nucleusMesh.rotation.x += 0.01;
+
+        // 彗尾動態定向 (永遠背向太陽原點 (0,0,0))
+        const cometPos = new THREE.Vector3(cState.x, cState.y, cState.z);
+        const sunDir = cometPos.clone().normalize(); // 太陽到彗星方向
+        const upVec = new THREE.Vector3(0, 1, 0);
+
+        // 藍色離子尾沿日彗連線背向太陽直刺
+        const targetQuat = new THREE.Quaternion().setFromUnitVectors(upVec, sunDir);
+        cObj.ionTailPivot.quaternion.copy(targetQuat);
+
+        // 金黃/白色塵埃尾受軌道公轉運動影響產生微幅彎曲偏角
+        const dustDir = sunDir.clone().add(new THREE.Vector3(0.12, 0.04, 0.12)).normalize();
+        const dustQuat = new THREE.Quaternion().setFromUnitVectors(upVec, dustDir);
+        cObj.dustTailPivot.quaternion.copy(dustQuat);
+
+        // 彗尾長度、彗髮體積隨近日點活性因子動態縮放
+        const act = cState.activityFactor;
+        cObj.ionTailPivot.scale.set(act, act, act);
+        cObj.dustTailPivot.scale.set(act * 1.1, act * 0.95, act * 1.1);
+        cObj.comaMesh.scale.set(act * 0.85 + 0.35, act * 0.85 + 0.35, act * 0.85 + 0.35);
+      });
+    }
+
+    // 6. 相機跟隨與平滑過渡
     this.updateCameraFollow();
   }
 
@@ -1257,6 +1429,15 @@ class SolarScene {
         this.camera.position.add(deltaTarget);
         this.controls.target.copy(targetPos);
       }
+    } else if (this.focusedCometId) {
+      // 正在鎖定跟隨某彗星
+      const state = this.simulation.cometStates.get(this.focusedCometId);
+      if (state) {
+        const targetPos = new THREE.Vector3(state.x, state.y, state.z);
+        const deltaTarget = new THREE.Vector3().subVectors(targetPos, this.controls.target);
+        this.camera.position.add(deltaTarget);
+        this.controls.target.copy(targetPos);
+      }
     }
   }
 
@@ -1266,6 +1447,7 @@ class SolarScene {
   focusOnPlanet(planetId) {
     this.focusedPlanetId = planetId;
     this.focusedBlackHoleId = null;
+    this.focusedCometId = null;
     const state = this.simulation.planetStates.get(planetId);
     const obj = this.planetMeshes.get(planetId);
     if (!state || !obj) return;
@@ -1285,10 +1467,35 @@ class SolarScene {
   }
 
   /**
+   * 鏡頭聚焦至特定彗星 (哈雷彗星, 海爾-波普彗星)
+   */
+  focusOnComet(cometId) {
+    this.focusedPlanetId = null;
+    this.focusedBlackHoleId = null;
+    this.focusedCometId = cometId;
+    this.isTopDownView = false;
+    const cObj = this.cometObjects.get(cometId);
+    if (!cObj) return;
+
+    const cState = this.simulation.cometStates.get(cometId);
+    if (!cState) return;
+
+    const targetPos = new THREE.Vector3(cState.x, cState.y, cState.z);
+    const cameraTarget = new THREE.Vector3(
+      cState.x + 24,
+      cState.y + 12,
+      cState.z + 24
+    );
+    this.controlsTargetLerp = targetPos;
+    this.cameraLerpTarget = cameraTarget;
+  }
+
+  /**
    * 鏡頭聚焦至特定黑洞 (Gaia BH1, Gaia BH3, Sgr A*)
    */
   focusOnBlackHole(bhId) {
     this.focusedPlanetId = null;
+    this.focusedCometId = null;
     this.focusedBlackHoleId = bhId;
     this.isTopDownView = false;
     const bhObj = this.blackHoleObjects.get(bhId);
@@ -1312,6 +1519,7 @@ class SolarScene {
   setMilkyWayView() {
     this.focusedPlanetId = null;
     this.focusedBlackHoleId = null;
+    this.focusedCometId = null;
     this.isTopDownView = false;
     this.controlsTargetLerp = new THREE.Vector3(0, 0, -700);
     this.cameraLerpTarget = new THREE.Vector3(0, 2400, 1800);
@@ -1323,6 +1531,7 @@ class SolarScene {
   setEarthCenteredView() {
     this.focusedPlanetId = 'earth';
     this.focusedBlackHoleId = null;
+    this.focusedCometId = null;
     this.isTopDownView = false;
     const state = this.simulation.planetStates.get('earth');
     if (!state) return;
@@ -1343,6 +1552,7 @@ class SolarScene {
   setTopDownView() {
     this.focusedPlanetId = null;
     this.focusedBlackHoleId = null;
+    this.focusedCometId = null;
     this.isTopDownView = true;
     this.controlsTargetLerp = new THREE.Vector3(0, 0, 0);
     this.cameraLerpTarget = new THREE.Vector3(0, 360, 0.01);
@@ -1354,6 +1564,7 @@ class SolarScene {
   resetFreeOrbitView() {
     this.focusedPlanetId = null;
     this.focusedBlackHoleId = null;
+    this.focusedCometId = null;
     this.isTopDownView = false;
     this.controlsTargetLerp = new THREE.Vector3(0, 0, 0);
     this.cameraLerpTarget = new THREE.Vector3(0, 140, 260);
@@ -1378,6 +1589,7 @@ class SolarScene {
         this.planetLabels.forEach(label => label.visible = visible);
         if (this.moonLabel) this.moonLabel.visible = visible;
         this.blackHoleObjects.forEach(b => b.label.visible = visible);
+        this.cometObjects.forEach(c => c.label.visible = visible);
         break;
       case 'moonOrbit':
         if (this.moonOrbitLine) this.moonOrbitLine.visible = visible;
@@ -1399,6 +1611,12 @@ class SolarScene {
           b.beamLine.visible = visible;
         });
         break;
+      case 'comets':
+        this.cometObjects.forEach(c => {
+          c.group.visible = visible;
+          c.orbitLine.visible = visible;
+        });
+        break;
     }
   }
 
@@ -1415,6 +1633,10 @@ class SolarScene {
     this.blackHoleObjects.forEach(bh => {
       meshesToTest.push(bh.mesh);
     });
+    this.cometObjects.forEach(c => {
+      meshesToTest.push(c.nucleusMesh);
+      meshesToTest.push(c.comaMesh);
+    });
 
     const intersects = this.raycaster.intersectObjects(meshesToTest, true);
     if (intersects.length > 0) {
@@ -1423,7 +1645,9 @@ class SolarScene {
         hitMesh = hitMesh.parent;
       }
       if (hitMesh && hitMesh.userData && hitMesh.userData.id) {
-        if (hitMesh.userData.isBlackHole && window.onBlackHoleSelected) {
+        if (hitMesh.userData.isComet && window.onCometSelected) {
+          window.onCometSelected(hitMesh.userData.id);
+        } else if (hitMesh.userData.isBlackHole && window.onBlackHoleSelected) {
           window.onBlackHoleSelected(hitMesh.userData.id);
         } else if (window.onPlanetSelected) {
           window.onPlanetSelected(hitMesh.userData.id);

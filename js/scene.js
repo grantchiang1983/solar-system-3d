@@ -237,6 +237,8 @@ class SolarScene {
       color: 0xffffff
     });
     const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+    sunMesh.castShadow = false;
+    sunMesh.receiveShadow = false;
     sunMesh.userData = { id: data.id, name: data.zhName };
     sunGroup.add(sunMesh);
 
@@ -833,18 +835,19 @@ class SolarScene {
         metalness: 0.05
       });
       const nucleusMesh = new THREE.Mesh(nucleusGeo, nucleusMat);
-      nucleusMesh.castShadow = true;
+      nucleusMesh.castShadow = false;
+      nucleusMesh.receiveShadow = false;
       nucleusMesh.userData = { id: comet.id, name: comet.zhName, isComet: true };
       cometGroup.add(nucleusMesh);
 
-      // 2. 超高解析度多層體積彗髮 (Multi-Layered Volumetric Glowing Coma)
+      // 2. 超高解析度多層體積彗髮 (採用 NormalBlending，杜絕在太陽表面產生刺眼光斑)
       // 內層極致熾熱核心 (Dense Inner Coma)
       const innerComaTex = TextureGenerator.createCometComaTexture(1024, '#ffffff', comet.comaColor);
       const innerComaMat = new THREE.SpriteMaterial({
         map: innerComaTex,
         transparent: true,
-        opacity: 0.95,
-        blending: THREE.AdditiveBlending,
+        opacity: 0.85,
+        blending: THREE.NormalBlending,
         depthWrite: false
       });
       const innerComaSprite = new THREE.Sprite(innerComaMat);
@@ -857,15 +860,15 @@ class SolarScene {
       const outerComaMat = new THREE.MeshBasicMaterial({
         color: new THREE.Color(comet.comaColor),
         transparent: true,
-        opacity: 0.40,
-        blending: THREE.AdditiveBlending,
+        opacity: 0.30,
+        blending: THREE.NormalBlending,
         depthWrite: false
       });
       const outerComaMesh = new THREE.Mesh(outerComaGeo, outerComaMat);
       cometGroup.add(outerComaMesh);
 
       // 3. 2K 超高解析度絲狀離子尾 (Ultra-HD Filamentary Ion Tail)
-      // 採用 3 組交叉多平面與柔和外層圓柱 (Multi-Sheet Volumetric Sheath)
+      // 採用 3 組交叉多平面與柔和外層圓柱 (Multi-Sheet Volumetric Sheath - NormalBlending)
       const ionTailLen = isHaleBopp ? 65 : 48;
       const ionTex = TextureGenerator.createCometIonTailTexture(512, 1024, isHaleBopp ? false : true);
       const ionTailPivot = new THREE.Group();
@@ -875,8 +878,8 @@ class SolarScene {
         map: ionTex,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.85,
-        blending: THREE.AdditiveBlending,
+        opacity: 0.80,
+        blending: THREE.NormalBlending,
         depthWrite: false
       });
 
@@ -894,8 +897,8 @@ class SolarScene {
         map: ionTex,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.45,
-        blending: THREE.AdditiveBlending,
+        opacity: 0.35,
+        blending: THREE.NormalBlending,
         depthWrite: false
       });
       const ionCylMesh = new THREE.Mesh(ionCylGeo, ionCylMat);
@@ -903,7 +906,7 @@ class SolarScene {
       ionTailPivot.add(ionCylMesh);
       cometGroup.add(ionTailPivot);
 
-      // 4. 2K 超高解析度微米微晶塵埃尾 (Ultra-HD Curved Dust Tail)
+      // 4. 2K 超高解析度微米微晶塵埃尾 (Ultra-HD Curved Dust Tail - NormalBlending)
       const dustTailLen = isHaleBopp ? 56 : 40;
       const dustTex = TextureGenerator.createCometDustTailTexture(1024, 1024, isHaleBopp ? true : false);
       const dustTailPivot = new THREE.Group();
@@ -913,8 +916,8 @@ class SolarScene {
         map: dustTex,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.75,
-        blending: THREE.AdditiveBlending,
+        opacity: 0.70,
+        blending: THREE.NormalBlending,
         depthWrite: false
       });
 
@@ -933,8 +936,8 @@ class SolarScene {
       const jetMat = new THREE.MeshBasicMaterial({
         color: 0xffffff,
         transparent: true,
-        opacity: 0.65,
-        blending: THREE.AdditiveBlending,
+        opacity: 0.45,
+        blending: THREE.NormalBlending,
         depthWrite: false
       });
       const jetMesh = new THREE.Mesh(jetConeGeo, jetMat);

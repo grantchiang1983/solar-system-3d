@@ -54,6 +54,8 @@ const PLANETS_DATA = [
     axialTiltDeg: 0.034,
     eccentricity: 0.20563,
     inclinationDeg: 7.005,
+    ascendingNodeDeg: 48.331,       // 升交點黃經 Ω (J2000)
+    argumentOfPeriapsisDeg: 29.124, // 近日點幅角 ω (J2000)
     temperature: '-180 °C 至 430 °C',
     massKg: '3.301 × 10²³ kg (地球的 0.055 倍)',
     gravity: '3.7 m/s² (0.38g)',
@@ -81,6 +83,8 @@ const PLANETS_DATA = [
     axialTiltDeg: 177.36,
     eccentricity: 0.00677,
     inclinationDeg: 3.394,
+    ascendingNodeDeg: 76.680,       // 升交點黃經 Ω (J2000)
+    argumentOfPeriapsisDeg: 54.884, // 近日點幅角 ω (J2000)
     temperature: '約 465 °C (極端溫室效應)',
     massKg: '4.867 × 10²⁴ kg (地球的 0.815 倍)',
     gravity: '8.87 m/s² (0.90g)',
@@ -108,6 +112,8 @@ const PLANETS_DATA = [
     axialTiltDeg: 23.44,
     eccentricity: 0.01671,
     inclinationDeg: 0.000,
+    ascendingNodeDeg: 348.739,      // 升交點黃經 Ω (J2000)
+    argumentOfPeriapsisDeg: 114.207,// 近日點幅角 ω (J2000)
     temperature: '-89 °C 至 58 °C (平均約 15 °C)',
     massKg: '5.972 × 10²⁴ kg',
     gravity: '9.807 m/s² (1g)',
@@ -122,6 +128,7 @@ const PLANETS_DATA = [
       visualRadius: 0.65,
       orbitDistance: 4.8,
       orbitPeriodDays: 27.322,
+      inclinationDeg: 5.145,        // 月球軌道傾角 (相對黃道面)
       color: '#c4c8cb'
     }
   },
@@ -145,6 +152,8 @@ const PLANETS_DATA = [
     axialTiltDeg: 25.19,
     eccentricity: 0.09340,
     inclinationDeg: 1.850,
+    ascendingNodeDeg: 49.558,       // 升交點黃經 Ω (J2000)
+    argumentOfPeriapsisDeg: 286.502,// 近日點幅角 ω (J2000)
     temperature: '-140 °C 至 20 °C (平均 -63 °C)',
     massKg: '6.417 × 10²³ kg (地球的 0.107 倍)',
     gravity: '3.72 m/s² (0.38g)',
@@ -172,6 +181,8 @@ const PLANETS_DATA = [
     axialTiltDeg: 3.13,
     eccentricity: 0.04849,
     inclinationDeg: 1.303,
+    ascendingNodeDeg: 100.464,      // 升交點黃經 Ω (J2000)
+    argumentOfPeriapsisDeg: 273.867,// 近日點幅角 ω (J2000)
     temperature: '-110 °C (雲頂溫度)',
     massKg: '1.898 × 10²⁷ kg (其餘行星質量總和的 2.5 倍)',
     gravity: '24.79 m/s² (2.53g)',
@@ -199,6 +210,8 @@ const PLANETS_DATA = [
     axialTiltDeg: 26.73,
     eccentricity: 0.05555,
     inclinationDeg: 2.485,
+    ascendingNodeDeg: 113.665,      // 升交點黃經 Ω (J2000)
+    argumentOfPeriapsisDeg: 339.392,// 近日點幅角 ω (J2000)
     temperature: '-140 °C (雲頂溫度)',
     massKg: '5.683 × 10²⁶ kg (地球的 95 倍)',
     gravity: '10.44 m/s² (1.06g)',
@@ -229,6 +242,8 @@ const PLANETS_DATA = [
     axialTiltDeg: 97.77,
     eccentricity: 0.04726,
     inclinationDeg: 0.773,
+    ascendingNodeDeg: 74.006,       // 升交點黃經 Ω (J2000)
+    argumentOfPeriapsisDeg: 96.999, // 近日點幅角 ω (J2000)
     temperature: '-224 °C (太陽系最冷的大氣層)',
     massKg: '8.681 × 10²⁵ kg (地球的 14.5 倍)',
     gravity: '8.69 m/s² (0.89g)',
@@ -259,6 +274,8 @@ const PLANETS_DATA = [
     axialTiltDeg: 28.32,
     eccentricity: 0.00860,
     inclinationDeg: 1.769,
+    ascendingNodeDeg: 131.784,      // 升交點黃經 Ω (J2000)
+    argumentOfPeriapsisDeg: 276.336,// 近日點幅角 ω (J2000)
     temperature: '-218 °C',
     massKg: '1.024 × 10²⁶ kg (地球的 17.1 倍)',
     gravity: '11.15 m/s² (1.14g)',
@@ -274,18 +291,20 @@ const PLANETS_DATA = [
     radiusKm: 1188.3,
     visualRadius: 0.9,
     trueScaleRadius: 0.1,
-    visualOrbitRadius: 255,
+    visualOrbitRadius: 255,         // 近日點時會深入海王星軌道 (215) 內側 → 正確的 3:2 共振穿越
     color: '#bfa588',
     semiMajorAxisAU: 39.482,
     distanceKm: 5906380000,
-    perihelionAU: 29.658,
+    perihelionAU: 29.658,           // < 海王星 30.07 AU → 近日點在海王星內側
     aphelionAU: 49.305,
     orbitPeriodDays: 90560.0, // ~247.94 年
     meanSpeedKmS: 4.74,
     rotationPeriodDays: -6.3872, // ~153.3 小時
     axialTiltDeg: 122.53,
-    eccentricity: 0.24880,
-    inclinationDeg: 17.16,
+    eccentricity: 0.24880,          // 高離心率，造成近日點穿越現象
+    inclinationDeg: 17.16,          // 高傾角，3:2 共振保護不與海王星相撞
+    ascendingNodeDeg: 110.299,      // 升交點黃經 Ω (J2000)
+    argumentOfPeriapsisDeg: 113.834,// 近日點幅角 ω (J2000)
     temperature: '-230 °C 至 -240 °C',
     massKg: '1.303 × 10²² kg (月球的 0.18 倍)',
     gravity: '0.62 m/s² (0.063g)',
@@ -296,19 +315,19 @@ const PLANETS_DATA = [
 ];
 
 const ASTEROID_BELT_CONFIG = {
-  innerRadius: 84,
+  innerRadius: 80,    // 更貼近火星 (76) 外緣
   outerRadius: 98,
-  count: 1800,
-  minSize: 0.08,
-  maxSize: 0.35
+  count: 1600,
+  minSize: 0.07,
+  maxSize: 0.30
 };
 
 const KUIPER_BELT_CONFIG = {
   innerRadius: 235,
   outerRadius: 285,
-  count: 2200,
-  minSize: 0.06,
-  maxSize: 0.28
+  count: 1100,        // 降低密度：柯伊伯帶物質稀疏，遠比小行星帶空曠
+  minSize: 0.05,
+  maxSize: 0.18       // 更小粒子：反映海外天體實際視覺尺寸
 };
 
 // 銀河系宏觀結構與太陽系銀心座標

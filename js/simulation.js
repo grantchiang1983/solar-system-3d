@@ -133,22 +133,30 @@ class SolarSimulation {
         state.rotationAngle += rotSpeedPerDay * daysStep;
       }
 
-      // 3D 視覺座標計算
+      // 3D 視覺座標計算 (完整克卜勒軌道元素：升交點 Ω + 傾角 i + 近日點幅角 ω)
       let orbitRadius;
       if (this.scaleMode === 'visual') {
         const baseR = planet.visualOrbitRadius;
         orbitRadius = (baseR * (1 - e * e)) / (1 + e * Math.cos(state.orbitAngle));
       } else {
-        // 真實比例模式 (適度放大以在 WebGL 中清晰可見)
         orbitRadius = r_AU * 12.0;
       }
 
       const incRad = ((planet.inclinationDeg || 0) * Math.PI) / 180;
-      state.x = orbitRadius * Math.cos(state.orbitAngle);
-      state.z = orbitRadius * Math.sin(state.orbitAngle);
-      state.y = orbitRadius * Math.sin(state.orbitAngle) * Math.sin(incRad);
+      const nodeRad = ((planet.ascendingNodeDeg || 0) * Math.PI) / 180;
+      const argRad  = ((planet.argumentOfPeriapsisDeg || 0) * Math.PI) / 180;
 
-      // 地球月球專用公轉與月相計算
+      // 軌道面座標 (True Anomaly + ω)
+      const u = state.orbitAngle + argRad;
+      const x_orb = orbitRadius * Math.cos(u);
+      const z_orb = orbitRadius * Math.sin(u);
+
+      // 黃道系座標轉換 (Ω 旋轉 + i 傾角投影)
+      state.x = x_orb * Math.cos(nodeRad) - z_orb * Math.cos(incRad) * Math.sin(nodeRad);
+      state.z = x_orb * Math.sin(nodeRad) + z_orb * Math.cos(incRad) * Math.cos(nodeRad);
+      state.y = z_orb * Math.sin(incRad);
+
+      // 地球月球專用公轉與月相計算 (含月球軌道傾角 5.145°)
       if (planet.hasMoon) {
         const moonSpeed = (2 * Math.PI) / planet.moon.orbitPeriodDays;
         state.moonOrbitAngle = (this.simDays * moonSpeed) % (Math.PI * 2);
@@ -159,7 +167,6 @@ class SolarSimulation {
         state.moonAzimuthDeg = moonAzimuth;
 
         // 月相判斷 (根據月球相對於地日連線的角度)
-        // 當月球處於地球與太陽之間為新月(朔)，當在地球背向太陽一側為滿月(望)
         const relAngle = ((state.moonOrbitAngle - state.orbitAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
         const relDeg = relAngle * 180 / Math.PI;
         let phaseName = '新月 (朔)';
@@ -171,8 +178,15 @@ class SolarSimulation {
         else if (relDeg >= 247.5 && relDeg < 292.5) phaseName = '下弦月 (Third Quarter)';
         else if (relDeg >= 292.5 && relDeg < 337.5) phaseName = '殘月 (Waning Crescent)';
         state.moonPhaseName = phaseName;
-        state.moonDistanceKm = 384400 * (1 - 0.0549 * Math.cos(state.moonOrbitAngle)); // 離心率動態日距
-        state.moonSpeedKmS = 1.022; // 月球公轉速度
+        state.moonDistanceKm = 384400 * (1 - 0.0549 * Math.cos(state.moonOrbitAngle));
+        state.moonSpeedKmS = 1.022;
+
+        // 月球軌道傾角 5.145° (相對黃道面) — 正確呈現月食不每月發生的原因
+        const moonIncRad = ((planet.moon.inclinationDeg || 5.145) * Math.PI) / 180;
+        const moonDist = planet.moon.orbitDistance;
+        state.moonX = moonDist * Math.cos(state.moonOrbitAngle);
+        state.moonZ = moonDist * Math.sin(state.moonOrbitAngle) * Math.cos(moonIncRad);
+        state.moonY = moonDist * Math.sin(state.moonOrbitAngle) * Math.sin(moonIncRad);
       }
     });
 

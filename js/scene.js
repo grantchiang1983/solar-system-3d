@@ -261,6 +261,31 @@ class SolarScene {
       mesh: sunMesh,
       data: data
     });
+
+    // 3. 動態太陽日珥 (Solar Prominences) — 3 條旋轉弧形電漿
+    this.solarProminences = [];
+    const promColors = [0xff6600, 0xff4400, 0xff8800];
+    for (let p = 0; p < 3; p++) {
+      const curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(data.visualRadius, 0, 0),
+        new THREE.Vector3(data.visualRadius * 1.35, data.visualRadius * 0.55, 0),
+        new THREE.Vector3(data.visualRadius * 0.7, data.visualRadius * 0.8, 0)
+      );
+      const promPts = curve.getPoints(32);
+      const promGeo = new THREE.BufferGeometry().setFromPoints(promPts);
+      const promMat = new THREE.LineBasicMaterial({
+        color: promColors[p],
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const promLine = new THREE.Line(promGeo, promMat);
+      promLine.rotation.y = (p * Math.PI * 2) / 3;
+      promLine.rotation.z = (p * 0.4);
+      sunGroup.add(promLine);
+      this.solarProminences.push(promLine);
+    }
   }
 
   createPlanet(data) {
@@ -606,7 +631,7 @@ class SolarScene {
       this.moonMesh.add(this.moonLabel);
     }
 
-    // 土星光環 (NASA 2K 高解析度環帶)
+    // 土星光環 (NASA 2K 高解析度環帶) — 跟隨土星軸傾角 26.73° 一起傾斜
     if (data.hasRings && data.id === 'saturn') {
       const ringTexture = (typeof NASA_TEXTURES !== 'undefined' && NASA_TEXTURES.saturnRing)
         ? texLoader.load(NASA_TEXTURES.saturnRing)
@@ -635,6 +660,8 @@ class SolarScene {
         depthWrite: false
       });
       const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      // 土星環在赤道面 → 旋轉到 XZ 平面，再跟隨行星自轉軸傾角 (26.73°)
+      // planetMesh.rotation.z 已設定軸傾角，所以環加進 planetMesh 後會自動跟隨
       ringMesh.rotation.x = Math.PI / 2;
       planetMesh.add(ringMesh);
     }
@@ -671,18 +698,23 @@ class SolarScene {
   }
 
   createOrbitPath(data) {
-    const segments = 256;
+    const segments = 360;
     const points = [];
     const a = data.visualOrbitRadius;
-    const e = data.eccentricity;
+    const e = data.eccentricity || 0;
     const incRad = THREE.MathUtils.degToRad(data.inclinationDeg || 0);
+    const nodeRad = THREE.MathUtils.degToRad(data.ascendingNodeDeg || 0);
+    const argRad  = THREE.MathUtils.degToRad(data.argumentOfPeriapsisDeg || 0);
 
     for (let i = 0; i <= segments; i++) {
       const theta = (i / segments) * Math.PI * 2;
       const r = (a * (1 - e * e)) / (1 + e * Math.cos(theta));
-      const x = r * Math.cos(theta);
-      const z = r * Math.sin(theta);
-      const y = r * Math.sin(theta) * Math.sin(incRad);
+      const u = theta + argRad;
+      const x_orb = r * Math.cos(u);
+      const z_orb = r * Math.sin(u);
+      const x = x_orb * Math.cos(nodeRad) - z_orb * Math.cos(incRad) * Math.sin(nodeRad);
+      const z = x_orb * Math.sin(nodeRad) + z_orb * Math.cos(incRad) * Math.cos(nodeRad);
+      const y = z_orb * Math.sin(incRad);
       points.push(new THREE.Vector3(x, y, z));
     }
 
@@ -1382,15 +1414,20 @@ class SolarScene {
           this.earthClouds.rotation.y = state.rotationAngle * 1.15;
         }
         if (this.moonMesh) {
-          const mDist = planet.moon.orbitDistance;
-          const mAngle = state.moonOrbitAngle;
-          const moonIncRad = THREE.MathUtils.degToRad(5.14);
-          this.moonMesh.position.set(
-            mDist * Math.cos(mAngle),
-            mDist * Math.sin(mAngle) * Math.sin(moonIncRad),
-            mDist * Math.sin(mAngle) * Math.cos(moonIncRad)
-          );
-          this.moonMesh.rotation.y = mAngle;
+          // 使用 simulation 計算的精確月球軌道傾角座標 (5.145°)
+          if (state.moonX !== undefined) {
+            this.moonMesh.position.set(state.moonX, state.moonY, state.moonZ);
+          } else {
+            const mDist = planet.moon.orbitDistance;
+            const mAngle = state.moonOrbitAngle;
+            const moonIncRad = THREE.MathUtils.degToRad(planet.moon.inclinationDeg || 5.145);
+            this.moonMesh.position.set(
+              mDist * Math.cos(mAngle),
+              mDist * Math.sin(mAngle) * Math.sin(moonIncRad),
+              mDist * Math.sin(mAngle) * Math.cos(moonIncRad)
+            );
+          }
+          this.moonMesh.rotation.y = state.moonOrbitAngle;
         }
       }
 
@@ -1425,6 +1462,13 @@ class SolarScene {
     }
     if (this.kuiperBelt) {
       this.kuiperBelt.rotation.y += 0.0001;
+    }
+
+    // 4. 太陽日珥動態旋轉動畫
+    if (this.solarProminences) {
+      this.solarProminences.forEach((prom, idx) => {
+        prom.rotation.y += 0.0018 * (idx % 2 === 0 ? 1 : -1);
+      });
     }
 
     // 4. 銀河系宏觀星盤（因 1 個銀河年長達 2.3 億年，在行星模擬時間尺度下作為精確宇宙慣性參考系，保持獵戶座次臂與太陽系精確鎖定）

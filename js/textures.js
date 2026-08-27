@@ -827,12 +827,51 @@ class TextureGenerator {
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.ClampToEdgeWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
-    r    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-    ctx.lineWidth = 1.0;
-    ctx.beginPath();
-    ctx.moveTo(cx - 48, cy); ctx.lineTo(cx + 48, cy);
-    ctx.moveTo(cx, cy - 48); ctx.lineTo(cx, cy + 48);
-    ctx.stroke();
+    return tex;
+  }
+
+  /**
+   * 相對論極向噴流高能電漿光束材質 (Relativistic Polar Jet Texture)
+   */
+  static createRelativisticJetTexture(colorHex = '#a855f7') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.15, colorHex);
+    grad.addColorStop(0.6, 'rgba(168, 85, 247, 0.4)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 512);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
+
+  /**
+   * 建立極致柔和的高斯光暈圓形星點貼圖 (Star Flare Sprite Texture)
+   * 徹底杜絕 WebGL 點精靈在無貼圖時預設繪製的正方形白方塊 (Square Point Artifacts)
+   */
+  static createStarSpriteTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const cx = 64;
+    const cy = 64;
+
+    const radGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 64);
+    radGrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    radGrad.addColorStop(0.15, 'rgba(255, 255, 255, 0.90)');
+    radGrad.addColorStop(0.35, 'rgba(215, 235, 255, 0.50)');
+    radGrad.addColorStop(0.65, 'rgba(160, 195, 255, 0.15)');
+    radGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = radGrad;
+    ctx.fillRect(0, 0, 128, 128);
 
     const tex = new THREE.CanvasTexture(canvas);
     return tex;

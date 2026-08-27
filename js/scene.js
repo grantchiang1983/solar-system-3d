@@ -67,7 +67,7 @@ class SolarScene {
     // 2. 初始化相機 (支援銀河系宏觀視界 40,000 單位)
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 40000);
+    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 80000);
     this.camera.position.set(0, 140, 260);
 
     // 3. 初始化渲染器 (啟用高精度軟陰影與色調映射)
@@ -124,7 +124,7 @@ class SolarScene {
 
   createSkybox() {
     const starTexture = TextureGenerator.createStarfieldTexture(2048);
-    const starGeo = new THREE.SphereGeometry(35000, 32, 32);
+    const starGeo = new THREE.SphereGeometry(25000, 32, 32);
     const starMat = new THREE.MeshBasicMaterial({
       map: starTexture,
       side: THREE.BackSide

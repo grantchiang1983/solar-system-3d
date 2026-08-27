@@ -888,6 +888,55 @@ class TextureGenerator {
   }
 
   /**
+   * 建立星際深色分子塵埃團塊貼圖 (Dark Molecular Dust Cloud Sprite)
+   * 模擬大裂谷 (Great Rift) 及旋臂內緣暗星雲之立體吸光阻擋效果
+   */
+  static createDarkDustSpriteTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const cx = 64;
+    const cy = 64;
+
+    const radGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 64);
+    radGrad.addColorStop(0.0, 'rgba(8, 5, 12, 0.85)');
+    radGrad.addColorStop(0.35, 'rgba(14, 9, 18, 0.55)');
+    radGrad.addColorStop(0.70, 'rgba(20, 14, 25, 0.20)');
+    radGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = radGrad;
+    ctx.fillRect(0, 0, 128, 128);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
+
+  /**
+   * 建立電離氫 HII 恆星育嬰室發射星雲團塊貼圖 (H-alpha Nebular Cloud Sprite)
+   */
+  static createHIICloudTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const cx = 64;
+    const cy = 64;
+
+    const radGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 64);
+    radGrad.addColorStop(0.0, 'rgba(255, 120, 160, 0.90)');
+    radGrad.addColorStop(0.25, 'rgba(244, 63, 94, 0.60)');
+    radGrad.addColorStop(0.60, 'rgba(219, 39, 119, 0.25)');
+    radGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = radGrad;
+    ctx.fillRect(0, 0, 128, 128);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
+
+  /**
    * 建立 4K 超擬真棒旋星系盤面紋理 (Photorealistic Barred Spiral Galaxy, 4096x4096)
    * 7 層渲染流程：核球 → 棒狀結構 → 分子環 → 4+1 螺旋臂 → 塵埃暗帶 → HII 星雲 → 恆星微晶
    * 每條旋臂使用可微分對數螺線 r = a·e^(b·θ) 並疊加碎形擾動模擬真實懸臂分叉與羽狀支臂

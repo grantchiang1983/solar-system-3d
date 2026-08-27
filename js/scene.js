@@ -964,23 +964,14 @@ class SolarScene {
       labelSprite.position.set(0, 8, 0);
       cometGroup.add(labelSprite);
 
-      // 7. 彗星 3D 高細分克卜勒大橢圓軌跡線 (Smooth Orbit Trajectory)
+      // 7. 彗星 3D 高細分克卜勒大橢圓軌跡線 (調用統一精確算法，確保軌跡線與彗星 100% 絕對重合)
       const orbitPoints = [];
-      const numOrbPts = 400; // 400 高細分平滑點
-      const a = comet.orbitVisualA;
-      const e = comet.eccentricity * 0.94;
-      const incRad = (comet.inclinationDeg * Math.PI) / 180;
-      const nodeRad = (comet.ascendingNodeDeg * Math.PI) / 180;
+      const numOrbPts = 500; // 500 高細分平滑點
 
       for (let p = 0; p <= numOrbPts; p++) {
         const theta = (p / numOrbPts) * Math.PI * 2;
-        const r = (a * (1 - e * e)) / (1 + e * Math.cos(theta));
-        const x_orb = r * Math.cos(theta);
-        const z_orb = r * Math.sin(theta);
-        const x = x_orb * Math.cos(nodeRad) - z_orb * Math.cos(incRad) * Math.sin(nodeRad);
-        const z = x_orb * Math.sin(nodeRad) + z_orb * Math.cos(incRad) * Math.cos(nodeRad);
-        const y = z_orb * Math.sin(incRad);
-        orbitPoints.push(new THREE.Vector3(x, y, z));
+        const coords = SolarSimulation.getComet3DCoords(comet, theta);
+        orbitPoints.push(new THREE.Vector3(coords.x, coords.y, coords.z));
       }
 
       const orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);

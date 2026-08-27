@@ -210,22 +210,38 @@ class SolarSimulation {
         // 彗星噴氣與彗尾活性因子 (距離太陽越近，活性與彗尾長度呈 1/r^2 爆發式增強)
         cState.activityFactor = Math.min(Math.max(Math.pow(1.8 / Math.max(cState.currentDistanceAU, 0.4), 1.5), 0.1), 3.5);
 
-        // 3D 視覺座標
-        const visualA = comet.orbitVisualA;
-        const visualR = (visualA * (1 - e * 0.94 * 0.94)) / (1 + e * 0.94 * Math.cos(cState.orbitAngle));
-        
-        const incRad = (comet.inclinationDeg * Math.PI) / 180;
-        const nodeRad = (comet.ascendingNodeDeg * Math.PI) / 180;
-
-        // 傾角與升交點黃道坐標變換
-        const x_orb = visualR * Math.cos(cState.orbitAngle);
-        const z_orb = visualR * Math.sin(cState.orbitAngle);
-
-        cState.x = x_orb * Math.cos(nodeRad) - z_orb * Math.cos(incRad) * Math.sin(nodeRad);
-        cState.z = x_orb * Math.sin(nodeRad) + z_orb * Math.cos(incRad) * Math.cos(nodeRad);
-        cState.y = z_orb * Math.sin(incRad);
+        // 3D 視覺座標 (調用統一精確克卜勒軌道空間變換算法)
+        const coords = SolarSimulation.getComet3DCoords(comet, cState.orbitAngle);
+        cState.x = coords.x;
+        cState.y = coords.y;
+        cState.z = coords.z;
       });
     }
+  }
+
+  /**
+   * 統一計算彗星在 3D 空間中的精確克卜勒軌道位置 (保證彗星與軌道虛線 100% 絕對重合)
+   */
+  static getComet3DCoords(comet, theta) {
+    const visualA = comet.orbitVisualA;
+    const effectiveE = Math.min(comet.eccentricity, 0.94); // 限制視覺離心率避免遠日點無限發散
+    const r = (visualA * (1 - effectiveE * effectiveE)) / (1 + effectiveE * Math.cos(theta));
+
+    const incRad = (comet.inclinationDeg * Math.PI) / 180;
+    const nodeRad = (comet.ascendingNodeDeg * Math.PI) / 180;
+    const argRad = ((comet.argumentOfPeriapsisDeg || 0) * Math.PI) / 180;
+
+    // 軌道面極座標展開 (True Anomaly + Argument of Periapsis)
+    const u = theta + argRad;
+    const x_orb = r * Math.cos(u);
+    const z_orb = r * Math.sin(u);
+
+    // 升交點經度與軌道傾角之黃道座標系轉換
+    const x = x_orb * Math.cos(nodeRad) - z_orb * Math.cos(incRad) * Math.sin(nodeRad);
+    const z = x_orb * Math.sin(nodeRad) + z_orb * Math.cos(incRad) * Math.cos(nodeRad);
+    const y = z_orb * Math.sin(incRad);
+
+    return { x, y, z, r };
   }
 
   /**

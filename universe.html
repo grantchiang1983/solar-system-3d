@@ -1,0 +1,213 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌐 可觀測宇宙 3D 極致探索平台 (Observable Universe 3D Explorer)</title>
+  <meta name="description" content="3D 可觀測宇宙宏觀天文探索平台：微波背景輻射 (CMB)、10 萬星系宇宙纖維網、拉尼亞凱亞超星系團、巨引源、本地星系群與超巨型類星體 TON 618。">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            deepSpace: '#010206',
+            cosmicVoid: '#070b14',
+            neonGold: '#f59e0b',
+            neonCyan: '#00f2fe',
+            neonPurple: '#a855f7'
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #010206;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      user-select: none;
+    }
+    #universe-canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .glass-panel {
+      background: rgba(7, 11, 20, 0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+    /* 自訂滾動條 */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #f59e0b;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="text-slate-100 flex flex-col h-screen">
+
+  <!-- 3D 渲染畫布容器 -->
+  <div id="universe-canvas-container"></div>
+
+  <!-- 頂部導航列 (Top Navigation Header) -->
+  <header class="relative z-10 w-full px-4 py-2.5 flex items-center justify-between glass-panel border-b border-amber-500/20">
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2">
+        <a href="index.html" class="px-3 py-1.5 rounded-lg bg-sky-950/80 hover:bg-sky-800 text-sky-300 hover:text-white text-xs md:text-sm font-medium border border-sky-500/40 transition flex items-center gap-1 shadow-lg">
+          ☀️ 太陽系 3D
+        </a>
+        <a href="galaxy.html" class="px-3 py-1.5 rounded-lg bg-purple-950/80 hover:bg-purple-800 text-purple-300 hover:text-white text-xs md:text-sm font-medium border border-purple-500/40 transition flex items-center gap-1 shadow-lg">
+          🌌 銀河系 3D
+        </a>
+      </div>
+      <div class="h-5 w-px bg-slate-700 hidden sm:block"></div>
+      <h1 class="text-base md:text-xl font-extrabold bg-gradient-to-r from-amber-400 via-rose-400 to-purple-400 bg-clip-text text-transparent flex items-center gap-2">
+        <span>🌐</span> 可觀測宇宙 3D 極致探索平台
+      </h1>
+      <span class="text-[10px] md:text-xs px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-500/40 hidden lg:inline">
+        跨越 930 億光年 · 2 兆個星系
+      </span>
+    </div>
+
+    <div class="text-xs text-slate-400 hidden xl:flex items-center gap-3">
+      <span>🌌 宇宙年齡：<strong>137.87 億年</strong></span>
+      <span>🌡️ CMB 餘暉：<strong>2.725 K</strong></span>
+    </div>
+  </header>
+
+  <!-- 快捷導覽導航列 (Quick Tours Bar) -->
+  <div class="relative z-10 w-full px-4 py-2 flex items-center space-x-2 overflow-x-auto bg-slate-950/70 backdrop-blur-md border-b border-slate-800 text-xs">
+    <span class="text-amber-400 font-semibold flex items-center gap-1 shrink-0">
+      🚀 宏觀導覽：
+    </span>
+    <button class="univ-tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-amber-900/60 border border-slate-700 hover:border-amber-400 text-slate-200 shrink-0 transition" data-id="reset">
+      🌐 宇宙全貌 (930 億光年)
+    </button>
+    <button class="univ-tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-amber-900/60 border border-slate-700 hover:border-amber-400 text-amber-300 shrink-0 transition" data-id="laniakea">
+      🌐 拉尼亞凱亞超星系團
+    </button>
+    <button class="univ-tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-pink-900/60 border border-slate-700 hover:border-pink-400 text-pink-400 shrink-0 transition" data-id="great_attractor">
+      🧲 巨引源 (Great Attractor)
+    </button>
+    <button class="univ-tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-sky-900/60 border border-slate-700 hover:border-sky-400 text-cyan-300 shrink-0 transition" data-id="milky_way">
+      🌌 銀河系母星系
+    </button>
+    <button class="univ-tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-blue-900/60 border border-slate-700 hover:border-blue-400 text-blue-300 shrink-0 transition" data-id="andromeda_m31">
+      🌀 仙女座星系 (M31)
+    </button>
+    <button class="univ-tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-rose-900/60 border border-slate-700 hover:border-rose-400 text-rose-400 shrink-0 transition" data-id="ton_618">
+      💥 類星體 TON 618 (660億M☉)
+    </button>
+    <button class="univ-tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-rose-900/60 border border-slate-700 hover:border-rose-400 text-rose-300 shrink-0 transition" data-id="jwst_jades_z14">
+      🔭 韋伯最遙遠星系 (z=14.32)
+    </button>
+    <button class="univ-tour-btn px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 text-slate-400 shrink-0 transition" data-id="bootes_void">
+      🌑 牧夫座巨洞
+    </button>
+  </div>
+
+  <!-- 左側控制面板 (Left Control Sidebar) -->
+  <aside class="absolute left-4 top-24 z-10 w-72 max-h-[calc(100vh-120px)] overflow-y-auto glass-panel rounded-xl p-4 shadow-2xl space-y-4 hidden md:block">
+    <!-- 宇宙組成比例 -->
+    <div class="p-3 rounded-lg bg-amber-950/30 border border-amber-500/30 space-y-2">
+      <div class="font-bold text-amber-400 text-xs flex items-center justify-between">
+        <span>📊 宇宙能量物質組成</span>
+        <span class="text-[10px] text-slate-400">普朗克衛星巡天</span>
+      </div>
+      <div class="w-full h-2 rounded-full overflow-hidden flex bg-slate-900">
+        <div class="bg-purple-500 h-full" style="width: 68.3%" title="暗能量 68.3%"></div>
+        <div class="bg-blue-500 h-full" style="width: 26.8%" title="暗物質 26.8%"></div>
+        <div class="bg-amber-400 h-full" style="width: 4.9%" title="普通重子物質 4.9%"></div>
+      </div>
+      <div class="grid grid-cols-3 text-[10px] text-center">
+        <span class="text-purple-400">暗能量 68.3%</span>
+        <span class="text-blue-400">暗物質 26.8%</span>
+        <span class="text-amber-300">普通物質 4.9%</span>
+      </div>
+    </div>
+
+    <!-- 3D 宏觀宇宙圖層開關 -->
+    <div>
+      <h3 class="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-2">🌐 宇宙宏觀圖層控制</h3>
+      <div class="grid grid-cols-1 gap-2 text-xs text-slate-300">
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="cmb" checked class="univ-layer-cb rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0">
+          <span>微波背景輻射 (CMB Horizon)</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="cosmicWeb" checked class="univ-layer-cb rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0">
+          <span>宇宙大尺度纖維網 (80k 星系團)</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="laniakeaFlow" checked class="univ-layer-cb rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0">
+          <span>拉尼亞凱亞重力流線 (Laniakea)</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="localGroup" checked class="univ-layer-cb rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0">
+          <span>本地星系群 (銀河/仙女/三角座)</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="extremes" checked class="univ-layer-cb rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0">
+          <span>極端類星體 TON 618 & 韋伯深空</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="grid" checked class="univ-layer-cb rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0">
+          <span>億光年尺度同心網格</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer">
+          <input type="checkbox" data-layer="labels" checked class="univ-layer-cb rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0">
+          <span>天體與結構標籤</span>
+        </label>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 右下角天體詳情檢查器 (Floating Inspector Modal) -->
+  <div id="universe-inspector" class="absolute right-4 bottom-6 z-20 w-80 md:w-96 glass-panel rounded-xl p-4 shadow-2xl hidden border border-amber-500/40">
+    <div class="flex items-start justify-between border-b border-slate-700/60 pb-2 mb-3">
+      <h3 id="univ-title" class="text-base font-bold text-amber-300 flex items-center gap-2">
+        🌐 拉尼亞凱亞超星系團
+      </h3>
+      <button id="close-univ-inspector" class="text-slate-400 hover:text-white text-lg leading-none">&times;</button>
+    </div>
+    <div class="space-y-2 text-xs">
+      <div class="flex justify-between py-1 border-b border-slate-800/60">
+        <span class="text-slate-400">結構類別：</span>
+        <span id="univ-type" class="text-slate-200 font-medium">超星系團 (Supercluster)</span>
+      </div>
+      <div class="flex justify-between py-1 border-b border-slate-800/60">
+        <span class="text-slate-400">物理跨度 / 距離：</span>
+        <span id="univ-span" class="text-amber-300 font-medium">約 5.2 億光年 (160 Mpc)</span>
+      </div>
+      <div class="pt-2 text-slate-300 leading-relaxed" id="univ-desc">
+        我們所在的宇宙家園巨型超星系團，包含約 10 萬個星系。
+      </div>
+    </div>
+  </div>
+
+  <!-- 應用腳本鏈結 -->
+  <script src="js/textures.js?v=20260827_2245"></script>
+  <script src="js/universe-data.js?v=20260827_2245"></script>
+  <script src="js/universe-app.js?v=20260827_2245"></script>
+</body>
+</html>

@@ -994,8 +994,8 @@ class TextureGenerator {
 
         const op = t < 0.25 ? 0.35 : (t < 0.7 ? 0.25 : 0.15);
         const ag = ctx.createRadialGradient(px, py, 0, px, py, armW);
-        ag.addColorStop(0.0, \gba(\, \, \, \)\);
-        ag.addColorStop(0.5, \gba(\, \, \, \)\);
+        ag.addColorStop(0.0, 'rgba(' + arm.hue[0] + ', ' + arm.hue[1] + ', ' + arm.hue[2] + ', ' + op + ')');
+        ag.addColorStop(0.5, 'rgba(' + arm.hue[0] + ', ' + arm.hue[1] + ', ' + arm.hue[2] + ', ' + (op * 0.4) + ')');
         ag.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = ag;
         ctx.beginPath();
@@ -1019,8 +1019,8 @@ class TextureGenerator {
         const spotR = (Math.random() * 8 + 3) * S;
         const op = (0.55 - t * 0.25);
         const ag = ctx.createRadialGradient(px, py, 0, px, py, spotR);
-        ag.addColorStop(0.0, \gba(255, 255, 255, \)\);
-        ag.addColorStop(0.4, \gba(\, \, \, \)\);
+        ag.addColorStop(0.0, 'rgba(255, 255, 255, ' + op + ')');
+        ag.addColorStop(0.4, 'rgba(' + arm.starHue[0] + ', ' + arm.starHue[1] + ', ' + arm.starHue[2] + ', ' + (op * 0.5) + ')');
         ag.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = ag;
         ctx.beginPath();

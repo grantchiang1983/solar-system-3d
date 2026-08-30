@@ -134,7 +134,7 @@ class GalaxyApp {
         armPos[idx * 3 + 2] = z;
 
         const t = radius / galaxyRadius;
-        const col = armColor.clone().lerp(new THREE.Color(0xffffff), 0.35 + Math.random() * 0.4);
+        const col = armColor.clone().lerp(new THREE.Color(0xfffbeb), 0.35 + Math.random() * 0.4);
         armCol[idx * 3] = col.r;
         armCol[idx * 3 + 1] = col.g;
         armCol[idx * 3 + 2] = col.b;
@@ -249,8 +249,8 @@ class GalaxyApp {
       hiiPos[h * 3 + 2] = Math.sin(theta) * radius + (Math.random() - 0.5) * spread;
 
       hiiCol[h * 3] = 1.0;
-      hiiCol[h * 3 + 1] = 0.30 + Math.random() * 0.20;
-      hiiCol[h * 3 + 2] = 0.55 + Math.random() * 0.20;
+      hiiCol[h * 3 + 1] = 0.40 + Math.random() * 0.15;
+      hiiCol[h * 3 + 2] = 0.30 + Math.random() * 0.15;
       hiiSize[h] = Math.random() * 8 + 4;
     }
     hiiGeo.setAttribute('position', new THREE.BufferAttribute(hiiPos, 3));
@@ -301,9 +301,9 @@ class GalaxyApp {
       haloPos[i * 3 + 1] = r * Math.cos(phi) * 0.55;
       haloPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
 
-      haloCol[i * 3] = 0.95;
-      haloCol[i * 3 + 1] = 0.85;
-      haloCol[i * 3 + 2] = 0.60;
+      haloCol[i * 3] = 0.98;
+      haloCol[i * 3 + 1] = 0.88;
+      haloCol[i * 3 + 2] = 0.65;
     }
     haloGeo.setAttribute('position', new THREE.BufferAttribute(haloPos, 3));
     haloGeo.setAttribute('color', new THREE.BufferAttribute(haloCol, 3));

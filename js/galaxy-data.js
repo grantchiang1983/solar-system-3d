@@ -28,7 +28,7 @@ const GALAXY_DATA = {
       startRadius: 40,
       endRadius: 520,
       offsetRad: 0.0,
-      color: "#fef08a",
+      color: "#fde68a",
       spectralType: "Pop I 年輕恆星 + Pop II 老年恆星群",
       description: "銀河系兩大主要恆星密度波旋臂之一，發源自銀棒末端，包含密集的恆星形成區與巨大分子雲複合體。"
     },
@@ -40,7 +40,7 @@ const GALAXY_DATA = {
       startRadius: 50,
       endRadius: 540,
       offsetRad: Math.PI,
-      color: "#93c5fd",
+      color: "#fef3c7",
       spectralType: "高溫藍巨星 (O/B) + 巨型電離氫 HII 區",
       description: "銀河系另一大主要旋臂，位於太陽系外側，擁有極其活躍的新生恆星育嬰室（如著名的雙星團 NGC 869/884）。"
     },
@@ -52,7 +52,7 @@ const GALAXY_DATA = {
       startRadius: 45,
       endRadius: 480,
       offsetRad: Math.PI * 0.55,
-      color: "#a7f3d0",
+      color: "#fed7aa",
       spectralType: "密集氣體塵埃 + 巨大發射星雲",
       description: "位於太陽系與銀心之間，富含星際氣體與壯麗發射星雲，包括著名的船底座大星雲、礁湖星雲與鷹星雲。"
     },
@@ -64,7 +64,7 @@ const GALAXY_DATA = {
       startRadius: 35,
       endRadius: 560,
       offsetRad: Math.PI * 1.55,
-      color: "#c4b5fd",
+      color: "#fde68a",
       spectralType: "稀薄中性氫氣體 + 外緣恆星流",
       description: "內側為矩尺臂，延伸至外盤成為外臂（Outer Arm），是銀河系可觀測最外側的連續螺旋結構。"
     },
@@ -76,7 +76,7 @@ const GALAXY_DATA = {
       startRadius: 180,
       endRadius: 330,
       offsetRad: Math.PI * 0.82,
-      color: "#38bdf8",
+      color: "#bae6fd",
       spectralType: "年輕星團 + 古爾德帶 (Gould Belt)",
       description: "位於人馬臂與英仙臂之間的橋樑支臂，我們的太陽系與獵戶座大星雲均位於這條次臂上。"
     },

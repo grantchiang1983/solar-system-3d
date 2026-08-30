@@ -930,32 +930,26 @@ class TextureGenerator {
 
     ctx.clearRect(0, 0, size, size);
 
-    // ═══════════════════════════════════════════════════════════
-    // 1. 銀心微型緊湊核球 (Compact Bulge)
-    // ═══════════════════════════════════════════════════════════
+    // 1. Compact Bulge
     const bulgeR = size * 0.075;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, bulgeR);
-    g.addColorStop(0.0, 'rgba(255, 250, 230, 0.95)');
-    g.addColorStop(0.2, 'rgba(255, 225, 150, 0.70)');
-    g.addColorStop(0.5, 'rgba(220, 150, 60, 0.35)');
-    g.addColorStop(0.8, 'rgba(140, 75, 25, 0.10)');
+    g.addColorStop(0.0, 'rgba(255, 210, 130, 0.75)');
+    g.addColorStop(0.5, 'rgba(200, 130, 50, 0.35)');
     g.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(cx, cy, bulgeR, 0, Math.PI * 2);
     ctx.fill();
 
-    // ═══════════════════════════════════════════════════════════
-    // 2. 清晰中心棒狀結構 (Central Bar, 傾角 44°, 長度 3.2 kpc)
-    // ═══════════════════════════════════════════════════════════
+    // 2. Central Bar
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(Math.PI / 4.1);
     const barLen = size * 0.13;
     const bg = ctx.createRadialGradient(0, 0, 0, 0, 0, barLen);
-    bg.addColorStop(0.0, 'rgba(255, 240, 190, 0.85)');
-    bg.addColorStop(0.35, 'rgba(240, 185, 110, 0.50)');
-    bg.addColorStop(0.70, 'rgba(180, 110, 45, 0.20)');
+    bg.addColorStop(0.0, 'rgba(255, 230, 170, 0.85)');
+    bg.addColorStop(0.35, 'rgba(230, 175, 90, 0.50)');
+    bg.addColorStop(0.70, 'rgba(180, 120, 45, 0.20)');
     bg.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = bg;
     ctx.scale(2.6, 0.65);
@@ -964,33 +958,29 @@ class TextureGenerator {
     ctx.fill();
     ctx.restore();
 
-    // ═══════════════════════════════════════════════════════════
-    // 3. 5 kpc 分子氣體環 (Molecular Ring - 緊湊高對比)
-    // ═══════════════════════════════════════════════════════════
+    // 3. 5 kpc Molecular Ring
     const molG = ctx.createRadialGradient(cx, cy, size * 0.08, cx, cy, size * 0.14);
-    molG.addColorStop(0.0, 'rgba(140, 180, 255, 0)');
-    molG.addColorStop(0.5, 'rgba(130, 175, 250, 0.35)');
-    molG.addColorStop(1.0, 'rgba(60, 100, 220, 0)');
+    molG.addColorStop(0.0, 'rgba(255, 210, 140, 0)');
+    molG.addColorStop(0.5, 'rgba(255, 210, 140, 0.30)');
+    molG.addColorStop(1.0, 'rgba(200, 140, 60, 0)');
     ctx.fillStyle = molG;
     ctx.beginPath();
     ctx.arc(cx, cy, size * 0.14, 0, Math.PI * 2);
     ctx.fill();
 
-    // ═══════════════════════════════════════════════════════════
-    // 4. 4 條清晰對數螺旋臂 + 獵戶座次臂 (嚴格緊湊清晰螺線)
-    // ═══════════════════════════════════════════════════════════
+    // 4. Spiral Arms
     const armDefs = [
-      { name: 'Scutum-Centaurus', offset: 0,             pitch: 1.78, width: 1.0,  hue: [255, 225, 180], starHue: [255, 245, 220] },
-      { name: 'Perseus',          offset: Math.PI / 2,    pitch: 1.82, width: 0.95, hue: [150, 195, 255], starHue: [200, 230, 255] },
-      { name: 'Sagittarius',      offset: Math.PI,        pitch: 1.76, width: 0.88, hue: [180, 210, 255], starHue: [220, 235, 255] },
-      { name: 'Norma-Outer',      offset: Math.PI * 1.5,  pitch: 1.84, width: 0.80, hue: [140, 185, 250], starHue: [180, 215, 255] },
-      { name: 'Orion Spur',       offset: Math.PI * 0.84, pitch: 1.55, width: 0.55, hue: [190, 220, 255], starHue: [225, 240, 255] }
+      { name: 'Scutum-Centaurus', offset: 0,             pitch: 1.78, width: 1.0,  hue: [255, 230, 185], starHue: [255, 245, 210] },
+      { name: 'Perseus',          offset: Math.PI / 2,    pitch: 1.82, width: 0.95, hue: [255, 235, 195], starHue: [255, 245, 220] },
+      { name: 'Sagittarius',      offset: Math.PI,        pitch: 1.76, width: 0.88, hue: [255, 225, 175], starHue: [255, 235, 200] },
+      { name: 'Norma-Outer',      offset: Math.PI * 1.5,  pitch: 1.84, width: 0.80, hue: [245, 220, 170], starHue: [255, 230, 190] },
+      { name: 'Orion Spur',       offset: Math.PI * 0.84, pitch: 1.55, width: 0.55, hue: [255, 240, 210], starHue: [255, 250, 230] }
     ];
 
     const maxR = size * 0.46;
     const minR = size * 0.085;
 
-    // 4a. 旋臂主要星雲光帶 (緊密聚合，留下臂間深黑空隙)
+    // 4a. Arm Background
     armDefs.forEach(arm => {
       const stepCount = arm.name === 'Orion Spur' ? 500 : 1200;
       for (let s = 0; s < stepCount; s++) {
@@ -998,15 +988,14 @@ class TextureGenerator {
         const r = minR + Math.pow(t, 0.85) * (maxR * arm.width - minR);
         const theta = arm.offset + Math.log(r / minR) * arm.pitch;
         
-        // 緊湊寬度 (臂寬僅隨半徑微幅擴散，絕不蔓延至臂間)
         const armW = (28 + t * 45) * S;
         const px = cx + r * Math.cos(theta);
         const py = cy + r * Math.sin(theta);
 
         const op = t < 0.25 ? 0.35 : (t < 0.7 ? 0.25 : 0.15);
         const ag = ctx.createRadialGradient(px, py, 0, px, py, armW);
-        ag.addColorStop(0.0, `rgba(${arm.hue[0]}, ${arm.hue[1]}, ${arm.hue[2]}, ${op})`);
-        ag.addColorStop(0.5, `rgba(${arm.hue[0]}, ${arm.hue[1]}, ${arm.hue[2]}, ${op * 0.4})`);
+        ag.addColorStop(0.0, \gba(\, \, \, \)\);
+        ag.addColorStop(0.5, \gba(\, \, \, \)\);
         ag.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = ag;
         ctx.beginPath();
@@ -1015,7 +1004,7 @@ class TextureGenerator {
       }
     });
 
-    // 4b. 旋臂骨幹高密度恆星核心 (Crisp High-Density Star Spine)
+    // 4b. Crisp High-Density Star Spine
     armDefs.forEach(arm => {
       const stepCount = arm.name === 'Orion Spur' ? 700 : 1800;
       for (let s = 0; s < stepCount; s++) {
@@ -1030,8 +1019,8 @@ class TextureGenerator {
         const spotR = (Math.random() * 8 + 3) * S;
         const op = (0.55 - t * 0.25);
         const ag = ctx.createRadialGradient(px, py, 0, px, py, spotR);
-        ag.addColorStop(0.0, `rgba(255, 255, 255, ${op})`);
-        ag.addColorStop(0.4, `rgba(${arm.starHue[0]}, ${arm.starHue[1]}, ${arm.starHue[2]}, ${op * 0.5})`);
+        ag.addColorStop(0.0, \gba(255, 255, 255, \)\);
+        ag.addColorStop(0.4, \gba(\, \, \, \)\);
         ag.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = ag;
         ctx.beginPath();
@@ -1040,12 +1029,10 @@ class TextureGenerator {
       }
     });
 
-    // ═══════════════════════════════════════════════════════════
-    // 5. 旋臂內緣星際暗帶 (Sharp Dark Dust Lanes - 刀刻般立體剪影)
-    // ═══════════════════════════════════════════════════════════
+    // 5. Sharp Dark Dust Lanes
     armDefs.slice(0, 4).forEach(arm => {
       const dustOffset = 0.085;
-      ctx.strokeStyle = 'rgba(2, 1, 4, 0.96)';
+      ctx.strokeStyle = 'rgba(8, 4, 2, 0.96)';
       ctx.lineWidth = 14 * S;
       ctx.lineCap = 'round';
       ctx.beginPath();
@@ -1060,8 +1047,8 @@ class TextureGenerator {
       }
       ctx.stroke();
 
-      // 二級暗塵埃分支
-      ctx.strokeStyle = 'rgba(5, 3, 8, 0.70)';
+      // Secondary dust
+      ctx.strokeStyle = 'rgba(12, 6, 3, 0.70)';
       ctx.lineWidth = 7 * S;
       ctx.beginPath();
       for (let s = 0; s < 500; s++) {
@@ -1076,9 +1063,7 @@ class TextureGenerator {
       ctx.stroke();
     });
 
-    // ═══════════════════════════════════════════════════════════
-    // 6. 電離氫 HII 紅色發射星雲結 (Bright H-alpha Nebular Knots)
-    // ═══════════════════════════════════════════════════════════
+    // 6. HII Regions
     armDefs.forEach(arm => {
       const hiiCount = arm.name === 'Orion Spur' ? 45 : 90;
       for (let h = 0; h < hiiCount; h++) {
@@ -1090,9 +1075,9 @@ class TextureGenerator {
         const hiiR = (Math.random() * 12 + 4) * S;
 
         const hg = ctx.createRadialGradient(px, py, 0, px, py, hiiR);
-        hg.addColorStop(0.0, 'rgba(255, 100, 140, 0.85)');
-        hg.addColorStop(0.4, 'rgba(240, 50, 100, 0.45)');
-        hg.addColorStop(1.0, 'rgba(160, 20, 70, 0)');
+        hg.addColorStop(0.0, 'rgba(255, 120, 100, 0.65)');
+        hg.addColorStop(0.4, 'rgba(220, 70, 60, 0.35)');
+        hg.addColorStop(1.0, 'rgba(180, 40, 30, 0)');
         ctx.fillStyle = hg;
         ctx.beginPath();
         ctx.arc(px, py, hiiR, 0, Math.PI * 2);
@@ -1100,10 +1085,8 @@ class TextureGenerator {
       }
     });
 
-    // ═══════════════════════════════════════════════════════════
-    // 7. 針尖微晶恆星 (Crisp Pinpoint Stars)
-    // ═══════════════════════════════════════════════════════════
-    const starColors = ['#ffffff', '#bae6fd', '#fef08a', '#fdba74'];
+    // 7. Crisp Pinpoint Stars
+    const starColors = ['#ffffff', '#fffbeb', '#fef3c7', '#fde68a'];
     for (let st = 0; st < 3000; st++) {
       const armIdx = st % armDefs.length;
       const arm = armDefs[armIdx];
